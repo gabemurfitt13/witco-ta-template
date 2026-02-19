@@ -133,7 +133,6 @@
   <div class="card authWrap" id="authCard">
     <h2 class="authTitle">Sign in</h2>
     <div class="muted">
-      This is the part where we stop pretending “a public URL” is a security plan.
       Log in to save TAs centrally.
     </div>
 
@@ -162,18 +161,13 @@
         </div>
       </div>
     </div>
-
-    <div class="divider"></div>
-    <div class="muted">
-      If you get stuck: verify the project URL and that Email provider is enabled in Supabase Auth.
-    </div>
   </div>
 
   <!-- APP CARD -->
   <div class="card" id="appCard" style="display:none;">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-19__supabase_v1</span>
+      <span class="build">BUILD_ID: 2026-02-19__supabase_fix_v2</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
       <span class="pill warn" id="userPill">User: —</span>
@@ -354,11 +348,14 @@
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-19__supabase_v1 */
+/* BUILD_ID: 2026-02-19__supabase_fix_v2 */
 
-const sb_URL = "https://xhonexdwarrltxsiuevk.sb.co";
-const sb_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
-const sb = window.sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
+
+// Bulletproof client: won't crash even if script loads twice
+window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+var sb = window.__sb;
 
 const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
@@ -376,11 +373,9 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-
 const el = (id) => document.getElementById(id);
 
 const E = {
-  // auth
   authCard: el("authCard"),
   appCard: el("appCard"),
   authEmail: el("authEmail"),
@@ -392,7 +387,6 @@ const E = {
   authErrorText: el("authErrorText"),
   userPill: el("userPill"),
 
-  // form
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
   planEndUS: el("planEndUS"),
@@ -460,10 +454,10 @@ const E = {
 };
 
 let currentUser = null;
-let clientsCache = []; // [{id, display_name, plan_start, plan_end, work_location}]
+let clientsCache = [];
 
 const formState = {
-  lockState: "unlocked", // unlocked | locked | final
+  lockState: "unlocked",
   sigs: {
     client: { printed:"", signedAt:"", dataUrl:"", strokes:0 },
     coach:  { printed:"", signedAt:"", dataUrl:"", strokes:0 },
@@ -681,7 +675,6 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
-/* ---------- REQUIRED VALIDATION ---------- */
 function validateRequiredForSigning() {
   clearValidationUI();
   const errors = [];
@@ -700,7 +693,6 @@ function validateRequiredForSigning() {
   if (!E.timeIn.value) errors.push({ msg: "Time In is required.", node: E.timeIn });
   if (!E.timeOut.value) errors.push({ msg: "Time Out is required.", node: E.timeOut });
 
-  // Tasks: if Task title exists, require Support and Note
   const taskRows = [...E.tasksBody.querySelectorAll("tr")];
   taskRows.forEach((tr, idx) => {
     const inputs = tr.querySelectorAll("input, select");
@@ -714,7 +706,6 @@ function validateRequiredForSigning() {
     }
   });
 
-  // Goals: if Goal title exists, require prompt(s) code+count AND anecdotal record
   const goalRows = [...E.goalsBody.querySelectorAll("tr")];
   goalRows.forEach((tr, idx) => {
     const tas = tr.querySelectorAll("textarea");
@@ -738,20 +729,6 @@ function validateRequiredForSigning() {
         errors.push({ msg: `Goal ${idx+1}: At least one prompt (code + count) is required when a goal is listed.`, node: firstSel || tr });
         tr.querySelectorAll(".supportLine select").forEach(s => s.classList.add("invalid"));
         tr.querySelectorAll(".supportLine input[type='number']").forEach(n => n.classList.add("invalid"));
-      } else {
-        lines.forEach((line, j) => {
-          const sel = line.querySelector("select");
-          const cnt = line.querySelector('input[type="number"]');
-          const code = (sel?.value || "").trim();
-          const count = parseInt(cnt?.value || "0", 10) || 0;
-          const any = code || count;
-          const ok = code && count > 0;
-          if (any && !ok) {
-            errors.push({ msg: `Goal ${idx+1}: Prompt line ${j+1} must have BOTH code and count.`, node: sel || cnt });
-            if (sel) sel.classList.add("invalid");
-            if (cnt) cnt.classList.add("invalid");
-          }
-        });
       }
     }
   });
@@ -951,7 +928,7 @@ function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-19__supabase_v1",
+    build:"2026-02-19__supabase_fix_v2",
     clientId:cid,
     clientName:c?.display_name||"",
     planStartISO: c?.plan_start ? String(c.plan_start) : "",
@@ -1214,7 +1191,7 @@ function renderClientSelect(selectedId=null) {
 
 async function loadClients(selectedId=null){
   setSaveState("Loading clients…","warn");
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("clients")
     .select("id, display_name, plan_start, plan_end, work_location")
     .order("display_name", { ascending: true });
@@ -1242,7 +1219,7 @@ async function addClient(){
 
   const work_location = prompt("Work Location:", "") || "";
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("clients")
     .insert([{ display_name: name, plan_start, plan_end, work_location }])
     .select("id, display_name, plan_start, plan_end, work_location")
@@ -1272,7 +1249,7 @@ async function editClient(){
 
   const work_location = prompt("Work Location:", c.work_location || "") || "";
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("clients")
     .update({ display_name: name, plan_start, plan_end, work_location })
     .eq("id", cid)
@@ -1318,7 +1295,7 @@ async function uploadSignature(kind, dataUrl){
   const ts = new Date().toISOString().replace(/[:.]/g,"-");
   const path = `${currentUser.id}/${clientPart}_${kind}_${ts}.png`;
 
-  const { error } = await supabase
+  const { error } = await sb
     .storage
     .from("signatures")
     .upload(path, blob, { contentType: "image/png", upsert: false });
@@ -1335,14 +1312,12 @@ async function submitToSupabase(){
 
   setSaveState("Submitting…","warn");
 
-  // Commit latest strokes to dataUrl
   sigPads.client.commit();
   sigPads.coach.commit();
   sigPads.spec.commit();
 
   const snap = snapshot();
 
-  // Upload signatures (only if present)
   let clientSigPath = "";
   let coachSigPath = "";
   let specSigPath = "";
@@ -1352,7 +1327,6 @@ async function submitToSupabase(){
     if (snap.sigs?.coach?.dataUrl)  coachSigPath  = await uploadSignature("coach",  snap.sigs.coach.dataUrl);
     if (snap.sigs?.spec?.dataUrl)   specSigPath   = await uploadSignature("spec",   snap.sigs.spec.dataUrl);
 
-    // Store a lighter JSON (don’t shove base64 images into your DB)
     const snapForDb = structuredClone(snap);
     if (snapForDb.sigs?.client) snapForDb.sigs.client.dataUrl = "";
     if (snapForDb.sigs?.coach)  snapForDb.sigs.coach.dataUrl  = "";
@@ -1368,7 +1342,6 @@ async function submitToSupabase(){
     };
 
     const { error } = await sb.from("ta_records").insert([payload]);
-
     if(error) throw new Error(error.message);
 
     setSaveState("Submitted to Supabase","good");
@@ -1380,14 +1353,13 @@ async function submitToSupabase(){
   }
 }
 
-E.submitsb.addEventListener("click", submitToSupabase);
+E.submitSupabase.addEventListener("click", submitToSupabase);
 
 /* ---------- AUTH ---------- */
 function showAuthError(msg){
   E.authErrorText.textContent = msg;
   E.authErrorBox.style.display = "block";
 }
-
 function clearAuthError(){
   E.authErrorText.textContent = "";
   E.authErrorBox.style.display = "none";
@@ -1454,5 +1426,3 @@ sb.auth.onAuthStateChange(async () => {
 </script>
 </body>
 </html>
-
-
