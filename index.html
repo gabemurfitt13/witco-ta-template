@@ -63,8 +63,6 @@
     button.warn { background:#b36b00; border-color:#b36b00; }
     .tiny { font-size: 12px; padding: 6px 8px; border-radius: 9px; }
 
-    .req-bad { border-color:#b42318 !important; box-shadow:0 0 0 2px rgba(180,35,24,.12) !important; }
-
     .supportLines { display:flex; flex-direction:column; gap:6px; }
     .supportLine { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .supportLine select { flex: 1 1 120px; }
@@ -105,7 +103,7 @@
   <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-18__AUTO_ADD_CLIENT__v1</span>
+      <span class="build">BUILD_ID: 2026-02-18__PIN0413__sigcommit_v2</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
     </div>
@@ -196,7 +194,7 @@
 
     <div class="rowhead">
       <h2>Signatures</h2>
-      <div class="hint">Client signature locks. Unlock clears signatures.</div>
+      <div class="hint">Client signature locks. PIN unlock allows edits if needed.</div>
     </div>
 
     <div class="sigGrid">
@@ -239,7 +237,7 @@
 
     <div class="rowhead">
       <h2>Unlock for Edits (PIN)</h2>
-      <div class="hint">PIN unlocks edits only. Coach can sign regardless.</div>
+      <div class="hint">PIN is only for unlocking edits. Coach signature is not blocked by PIN.</div>
     </div>
 
     <div class="grid" style="align-items:end;">
@@ -249,7 +247,7 @@
       </div>
       <div class="col-4">
         <label>PIN</label>
-        <input id="unlockPin" type="password" placeholder="PIN" />
+        <input id="unlockPin" type="password" placeholder="0413" />
       </div>
       <div class="col-4">
         <label>Unlocked at</label>
@@ -273,11 +271,11 @@
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-18__AUTO_ADD_CLIENT__v1 */
+/* BUILD_ID: 2026-02-18__PIN0413__sigcommit_v2 */
 
-const AUTO_ADD_CLIENT_FLAG = "witco_auto_add_client_once";
-const CLIENTS_KEY = "witco_clients_v3__AUTOADD_v1";
-const STORAGE_KEY_BASE = "witco_supported_employment_form__AUTOADD_v1";
+const CLIENTS_KEY = "witco_clients_v3__PIN0413";
+const STORAGE_KEY_BASE = "witco_supported_employment_form__PIN0413";
+const PIN_DEFAULT = "0413";
 
 const DEFAULT_TASKS = [
   "Clock in & out",
@@ -292,9 +290,9 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-const PIN_DEFAULT = "2468";
 
 const el = (id) => document.getElementById(id);
+
 const E = {
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
@@ -354,7 +352,7 @@ const E = {
 };
 
 const formState = {
-  lockState: "unlocked",
+  lockState: "unlocked", // unlocked | locked | final
   sigs: {
     client: { printed:"", signedAt:"", dataUrl:"" },
     coach:  { printed:"", signedAt:"", dataUrl:"" },
@@ -575,6 +573,7 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
+// ---- SIGNATURE PAD (with commit) ----
 function sizeCanvasToCSS(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -583,79 +582,86 @@ function sizeCanvasToCSS(canvas) {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
-function createSigPad(canvas, getData, setData) {
-  const ctx=canvas.getContext("2d");
-  let drawing=false;
-  let last=null;
 
-  function redraw(){
+function createSigPad(canvas, getData, setData) {
+  const ctx = canvas.getContext("2d");
+  let drawing = false;
+  let last = null;
+
+  function redraw() {
     sizeCanvasToCSS(canvas);
-    const dataUrl=getData();
-    if(!dataUrl) return;
-    const img=new Image();
-    img.onload=()=>{
-      const r=canvas.getBoundingClientRect();
-      ctx.clearRect(0,0,r.width,r.height);
-      ctx.drawImage(img,0,0,r.width,r.height);
+    const dataUrl = getData();
+    if (!dataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      const r = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, r.width, r.height);
+      ctx.drawImage(img, 0, 0, r.width, r.height);
     };
-    img.src=dataUrl;
+    img.src = dataUrl;
   }
 
-  function clear(){
+  function clear() {
     sizeCanvasToCSS(canvas);
-    const r=canvas.getBoundingClientRect();
-    ctx.clearRect(0,0,r.width,r.height);
+    const r = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, r.width, r.height);
     setData("");
   }
 
-  function pos(e){
-    const r=canvas.getBoundingClientRect();
-    return { x:e.clientX-r.left, y:e.clientY-r.top };
+  function commit() {
+    // Force-save whatever is currently drawn on the canvas (mobile sanity)
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const tmp = document.createElement("canvas");
+    tmp.width = Math.max(1, Math.round(r.width));
+    tmp.height = Math.max(1, Math.round(r.height));
+    tmp.getContext("2d").drawImage(canvas, 0, 0, tmp.width, tmp.height);
+    setData(tmp.toDataURL("image/png"));
   }
 
-  canvas.addEventListener("pointerdown",(e)=>{
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
     sizeCanvasToCSS(canvas);
-    drawing=true;
-    last=pos(e);
+    drawing = true;
+    last = pos(e);
     canvas.setPointerCapture?.(e.pointerId);
     e.preventDefault();
   });
 
-  canvas.addEventListener("pointermove",(e)=>{
-    if(!drawing) return;
-    const p=pos(e);
-    ctx.lineWidth=2;
-    ctx.lineCap="round";
-    ctx.strokeStyle="#111";
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111";
     ctx.beginPath();
-    ctx.moveTo(last.x,last.y);
-    ctx.lineTo(p.x,p.y);
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
     ctx.stroke();
-    last=p;
+    last = p;
     e.preventDefault();
   });
 
-  function end(e){
-    if(!drawing) return;
-    drawing=false;
-    last=null;
-
-    const r=canvas.getBoundingClientRect();
-    const tmp=document.createElement("canvas");
-    tmp.width=Math.max(1, Math.round(r.width));
-    tmp.height=Math.max(1, Math.round(r.height));
-    tmp.getContext("2d").drawImage(canvas,0,0,tmp.width,tmp.height);
-    setData(tmp.toDataURL("image/png"));
+  function end(e) {
+    if (!drawing) return;
+    drawing = false;
+    last = null;
+    commit();
     autosave();
     e.preventDefault();
   }
+
   canvas.addEventListener("pointerup", end);
   canvas.addEventListener("pointercancel", end);
 
-  setTimeout(()=>{ sizeCanvasToCSS(canvas); redraw(); },0);
-  window.addEventListener("resize", ()=>{ sizeCanvasToCSS(canvas); redraw(); });
+  setTimeout(() => { sizeCanvasToCSS(canvas); redraw(); }, 0);
+  window.addEventListener("resize", () => { sizeCanvasToCSS(canvas); redraw(); });
 
-  return { clear, redraw };
+  return { clear, redraw, commit };
 }
 
 const sigPads = {
@@ -665,6 +671,7 @@ const sigPads = {
 };
 
 function nowStamp(){ return new Date().toLocaleString(); }
+
 function setEditingEnabled(enabled){
   [E.workLocation,E.entryDateUS,E.timeIn,E.timeOut,E.additionalNotes].forEach(n=>n.disabled=!enabled);
   E.tasksBody.querySelectorAll("input,select,button").forEach(n=>n.disabled=!enabled);
@@ -678,11 +685,27 @@ function updateLockUI(){
   setEditingEnabled(formState.lockState==="unlocked");
 }
 
+function syncSigBadges(){
+  const hasClient = !!formState.sigs.client.dataUrl;
+  const hasCoach  = !!formState.sigs.coach.dataUrl;
+  const hasSpec   = !!formState.sigs.spec.dataUrl;
+
+  E.clientSigStatus.textContent = hasClient ? "Signed" : "Not signed";
+  E.coachSigStatus.textContent  = hasCoach  ? "Signed" : "Not signed";
+  E.specSigStatus.textContent   = hasSpec   ? "Signed" : "Not signed";
+
+  [E.clientSigStatus,E.coachSigStatus,E.specSigStatus].forEach((p,i)=>{
+    const ok=[hasClient,hasCoach,hasSpec][i];
+    p.classList.toggle("good", ok);
+    p.classList.toggle("bad", !ok);
+  });
+}
+
 function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-18__AUTO_ADD_CLIENT__v1",
+    build:"2026-02-18__PIN0413__sigcommit_v2",
     clientId:cid,
     clientName:c?.name||"",
     planStartISO:c?.planStartISO||"",
@@ -700,6 +723,7 @@ function snapshot(){
     sigs:formState.sigs
   };
 }
+
 function apply(data){
   const cid=currentClientId();
   const c=getClientById(cid);
@@ -721,8 +745,18 @@ function apply(data){
   E.unlockAt.value=data.unlock?.at||"";
 
   formState.sigs=data.sigs || formState.sigs;
+  E.clientPrinted.value=formState.sigs.client.printed||"";
+  E.coachPrinted.value=formState.sigs.coach.printed||"";
+  E.specPrinted.value=formState.sigs.spec.printed||"";
+  E.clientSignedAt.textContent=formState.sigs.client.signedAt||"—";
+  E.coachSignedAt.textContent=formState.sigs.coach.signedAt||"—";
+  E.specSignedAt.textContent=formState.sigs.spec.signedAt||"—";
+
+  sigPads.client.redraw(); sigPads.coach.redraw(); sigPads.spec.redraw();
+  syncSigBadges();
   updateLockUI();
 }
+
 let saveTimer=null;
 function autosave(){
   clearTimeout(saveTimer);
@@ -735,6 +769,7 @@ function autosave(){
   },150);
 }
 
+// ---- client handling ----
 function loadClientTemplate(client){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
@@ -747,19 +782,29 @@ function loadClientTemplate(client){
   setGoals((client.goals || DEFAULT_GOALS).map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
 
   formState.lockState="unlocked";
+  formState.sigs = {
+    client:{printed:"",signedAt:"",dataUrl:""},
+    coach:{printed:"",signedAt:"",dataUrl:""},
+    spec:{printed:"",signedAt:"",dataUrl:""}
+  };
+  E.clientPrinted.value=""; E.coachPrinted.value=""; E.specPrinted.value="";
+  E.clientSignedAt.textContent="—"; E.coachSignedAt.textContent="—"; E.specSignedAt.textContent="—";
+  sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
+  syncSigBadges();
   updateLockUI();
   autosave();
 }
+
 function loadSavedForClient(clientId){
   const raw=localStorage.getItem(storageKeyFor(clientId));
   if(!raw) return false;
   try { apply(JSON.parse(raw)); return true; } catch { return false; }
 }
+
 function onClientChange(){
   const cid=currentClientId();
   const client=getClientById(cid);
   if(!client) return;
-
   const loaded=loadSavedForClient(cid);
   if(!loaded) loadClientTemplate(client);
   setSaveState(loaded ? "Loaded saved entry" : "Loaded template", "good");
@@ -768,6 +813,14 @@ E.clientSelect.addEventListener("change", ()=>onClientChange());
 
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
 E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
+
+["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
+  el(id).addEventListener("input", autosave);
+  el(id).addEventListener("change", autosave);
+});
+E.clientPrinted.addEventListener("input", ()=>{ formState.sigs.client.printed=E.clientPrinted.value.trim(); autosave(); });
+E.coachPrinted.addEventListener("input",  ()=>{ formState.sigs.coach.printed=E.coachPrinted.value.trim(); autosave(); });
+E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
 
 function download(filename,text){
   const blob=new Blob([text],{type:"application/json"});
@@ -849,21 +902,93 @@ E.demoBtn.addEventListener("click", ()=>{
   onClientChange();
 });
 
-/* ✅ UPDATED WIPE BEHAVIOR:
-   - wipe local storage
-   - set a one-time flag
-   - reload
-   - after reload, auto-open Add Client flow */
 E.wipeAll.addEventListener("click", ()=>{
   if(!confirm("Wipe ALL local data on this device?")) return;
-
   localStorage.removeItem(CLIENTS_KEY);
   Object.keys(localStorage).forEach(k=>{
     if(k.startsWith(STORAGE_KEY_BASE+":")) localStorage.removeItem(k);
   });
-
-  localStorage.setItem(AUTO_ADD_CLIENT_FLAG, "1");
   location.reload();
+});
+
+// ---- LOCK / UNLOCK ----
+function lockEdits(){
+  formState.lockState = "locked";
+  updateLockUI();
+  autosave();
+}
+function unlockEdits(){
+  formState.lockState = "unlocked";
+  E.unlockAt.value = nowStamp();
+  updateLockUI();
+  autosave();
+}
+
+E.unlockBtn.addEventListener("click", ()=>{
+  const pin = (E.unlockPin.value || "").trim();
+  if(pin !== PIN_DEFAULT){
+    alert("Incorrect PIN.");
+    return;
+  }
+  unlockEdits();
+  setSaveState("Unlocked for edits","good");
+});
+
+E.relockBtn.addEventListener("click", ()=>{
+  lockEdits();
+  setSaveState("Re-locked","good");
+});
+
+// ---- SIGNING ----
+function finalizeClientSignature(){
+  formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
+  formState.sigs.client.signedAt = nowStamp();
+  E.clientSignedAt.textContent = formState.sigs.client.signedAt;
+  formState.lockState = "locked";
+  updateLockUI();
+  syncSigBadges();
+  autosave();
+  setSaveState("Client signed. Form locked.","good");
+}
+function finalizeCoachSignature(){
+  formState.sigs.coach.printed = (E.coachPrinted.value||"").trim();
+  formState.sigs.coach.signedAt = nowStamp();
+  E.coachSignedAt.textContent = formState.sigs.coach.signedAt;
+  syncSigBadges(); autosave(); setSaveState("Coach signed.","good");
+}
+function finalizeSpecSignature(){
+  formState.sigs.spec.printed = (E.specPrinted.value||"").trim();
+  formState.sigs.spec.signedAt = nowStamp();
+  E.specSignedAt.textContent = formState.sigs.spec.signedAt;
+  formState.lockState = "final";
+  updateLockUI();
+  syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
+}
+
+E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); formState.sigs.client.dataUrl=""; syncSigBadges(); autosave(); });
+E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  formState.sigs.coach.dataUrl="";  syncSigBadges(); autosave(); });
+E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   formState.sigs.spec.dataUrl="";   syncSigBadges(); autosave(); });
+
+// ✅ FIX: commit before checking/locking (mobile + GitHub)
+E.clientSign.addEventListener("click", ()=>{
+  sigPads.client.commit();
+  if(!formState.sigs.client.dataUrl) return alert("Client signature is blank.");
+  if(!(E.clientPrinted.value||"").trim()) return alert("Client printed name is required.");
+  finalizeClientSignature();
+});
+
+E.coachSign.addEventListener("click", ()=>{
+  sigPads.coach.commit();
+  if(!formState.sigs.coach.dataUrl) return alert("Coach signature is blank.");
+  if(!(E.coachPrinted.value||"").trim()) return alert("Coach printed name is required.");
+  finalizeCoachSignature();
+});
+
+E.specFinal.addEventListener("click", ()=>{
+  sigPads.spec.commit();
+  if(!formState.sigs.spec.dataUrl) return alert("Specialist signature is blank.");
+  if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
+  finalizeSpecSignature();
 });
 
 // Init
@@ -880,14 +1005,7 @@ E.wipeAll.addEventListener("click", ()=>{
     setSaveState("No clients loaded","bad");
     updateLockUI();
   }
-
-  // If wipe was just used, auto-run Add Client once
-  if(localStorage.getItem(AUTO_ADD_CLIENT_FLAG) === "1"){
-    localStorage.removeItem(AUTO_ADD_CLIENT_FLAG);
-    setTimeout(()=>addOrUpdateClient(null), 200);
-  }
 })();
 </script>
-
 </body>
 </html>
