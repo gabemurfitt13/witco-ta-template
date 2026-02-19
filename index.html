@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Supported Employment Data Sheet</title>
+  <title>Supported Employment Data Sheet (Web Form)</title>
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; background: #f6f7fb; color: #111; }
     .wrap { max-width: 1100px; margin: 16px auto; padding: 12px; }
     .card { background: #fff; border: 1px solid #e6e8f0; border-radius: 12px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
-
     h1 { margin: 0 0 6px; font-size: 18px; }
     .sub { color: #555; font-size: 12px; margin-bottom: 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
+    .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
+    .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
 
     .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; }
     .col-12 { grid-column: span 12; }
-    .col-8  { grid-column: span 8; }
     .col-6  { grid-column: span 6; }
     .col-4  { grid-column: span 4; }
     .col-3  { grid-column: span 3; }
@@ -27,9 +27,7 @@
       width: 100%; box-sizing: border-box; padding: 8px 9px;
       border: 1px solid #d7dbea; border-radius: 10px; background: #fff;
       font-size: 13px;
-      min-width: 0;
     }
-    input[readonly], textarea[readonly] { background: #fafbff; }
     textarea { min-height: 54px; resize: none; overflow:hidden; }
     .tight textarea { min-height: 38px; }
 
@@ -37,10 +35,9 @@
     .rowhead h2 { margin: 0; font-size: 14px; }
     .hint { font-size: 11px; color: #666; line-height: 1.25; }
 
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th, td { border-top: 1px solid #eef0f6; padding: 6px 6px; vertical-align: top; }
     th { text-align: left; font-size: 11px; color: #555; background: #fafbff; }
-
     .mono { font-variant-numeric: tabular-nums; }
 
     .btnbar { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -50,15 +47,29 @@
     }
     button.secondary { background: #fff; color: #111; }
     button.danger { background: #b42318; border-color: #b42318; }
-    button.tiny { font-size: 12px; padding: 6px 8px; border-radius: 9px; }
-    button:disabled { opacity: .55; cursor: not-allowed; }
+    button.warn { background: #b36b00; border-color: #b36b00; }
+    button.ok { background:#157f3b; border-color:#157f3b; }
+    .tiny { font-size: 12px; padding: 6px 8px; border-radius: 9px; }
 
     .footer { margin-top: 10px; font-size: 11px; color: #666; }
 
-    .manageRow { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+    /* Required field highlight */
+    .req-bad { border-color:#b42318 !important; box-shadow:0 0 0 2px rgba(180,35,24,.12) !important; }
+    tr.req-bad { outline: 2px solid rgba(180,35,24,.18); outline-offset: -2px; }
 
-    /* Signature canvases */
-    .sigwrap { border: 1px solid #d7dbea; border-radius: 12px; padding: 8px; background: #fff; }
+    /* Prompt line layout */
+    .supportLines { display:flex; flex-direction:column; gap:6px; }
+    .supportLine { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .supportLine select { flex: 1 1 120px; }
+    .supportLine input { flex: 0 0 90px; }
+    .supportLine button { flex: 0 0 auto; }
+
+    /* Signatures */
+    .sigGrid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .sigCard { border:1px solid #e6e8f0; border-radius:12px; padding:10px; background:#fff; }
+    .sigTop { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .sigTop b { font-size: 13px; }
+    .sigMeta { font-size: 11px; color:#666; margin-top:6px; display:flex; gap:12px; flex-wrap:wrap; }
     .sigcanvas {
       width:100%;
       height:160px;
@@ -68,96 +79,59 @@
       display:block;
       background: linear-gradient(to bottom, transparent 0 78%, rgba(0,0,0,.08) 78% 79%, transparent 79% 100%);
     }
-    .sigrow { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:6px; flex-wrap:wrap; }
-    .sigmeta { font-size: 11px; color:#555; }
-    .lockbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
-    .badge {
-      display:inline-block; padding:3px 8px; border-radius:999px; border:1px solid #e6e8f0;
-      font-size:11px; background:#fafbff; color:#223;
-    }
-
-    .supports { display:flex; flex-direction:column; gap:6px; }
-    .supportLine { display:flex; gap:6px; align-items:center; }
-    .supportLine select, .supportLine input { padding:6px 8px; border-radius: 10px; }
-    .supportLine input { width: 76px; }
-    .supportChip {
-      display:inline-block; font-size:11px; padding:2px 6px; border-radius:999px;
-      border:1px solid #e0e5ff; background:#f1f3ff; color:#223;
-      margin-right:4px;
-    }
-
-    /* ---- Mobile table -> card layout (prevents 1-letter-per-line text) ---- */
+    /* Mobile: table -> card layout */
     @media (max-width: 720px) {
-      table { display: block; }
-      thead { display: none; }
+      .wrap { padding: 10px; }
+      .grid { grid-template-columns: repeat(12, 1fr); }
+      .col-6, .col-4, .col-3, .col-2 { grid-column: span 12; }
 
-      tbody { display: block; }
-      tr {
-        display: block;
-        border: 1px solid #eef0f6;
-        border-radius: 12px;
-        padding: 10px;
-        margin: 10px 0;
-        background: #fff;
-      }
-
-      td {
-        display: block;
-        border: none;
-        padding: 6px 0;
-        width: 100% !important;
-      }
-
-      /* Label each field using data-label */
+      table { display:block; }
+      thead { display:none; }
+      tbody, tr, td { display:block; width:100%; }
+      tr { border:1px solid #eef0f6; border-radius:12px; padding:10px; margin:10px 0; background:#fff; }
+      td { border:none; padding:6px 0; }
       td::before {
         content: attr(data-label);
-        display: block;
-        font-size: 11px;
-        color: #666;
-        margin-bottom: 4px;
+        display:block;
+        font-size:11px;
+        color:#666;
+        margin-bottom:4px;
       }
-
-      textarea { min-height: 90px; }
-
-      /* Support lines: wrap nicely */
-      .supportLine { flex-wrap: wrap; gap: 8px; }
       .supportLine select { flex: 1 1 140px; }
-      .supportLine input  { flex: 0 0 90px; }
-      .supportLine button { flex: 0 0 auto; }
-
+      .supportLine input { flex: 0 0 90px; }
       td:last-child button { width: 100%; }
+
+      .sigGrid { grid-template-columns: 1fr; }
     }
 
     @media print {
       body { background: #fff; }
       .wrap { margin: 0; padding: 0; }
       .card { box-shadow: none; border: none; border-radius: 0; padding: 0; }
-      .btnbar, .footer, .manageRow, .lockbar, .sigrow button { display: none !important; }
+      .btnbar, .footer, .manageRow { display: none !important; }
       input, textarea, select { border: 1px solid #bbb; }
       th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       textarea { min-height: 32px; }
       .hint { font-size: 10px; }
-      .sigcanvas { border: 1px solid #999; }
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
       <div class="sub">
-        Mobile-friendly. Saves locally per client on this device (until you move to a real database).
+        One form. Works on desktop + mobile. Saves locally per device (for now).
         <span class="pill" id="saveState">Ready</span>
-        <span class="badge" id="lockStateBadge">DRAFT</span>
+        <span class="pill" id="lockStatePill">Unlocked</span>
       </div>
 
       <div class="grid">
         <div class="col-6">
           <label>Client</label>
           <select id="clientSelect"></select>
-          <div class="manageRow">
+          <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
             <button class="secondary tiny" id="addClient" type="button">Add Client</button>
             <button class="secondary tiny" id="editClient" type="button">Edit Client</button>
             <button class="secondary tiny" id="loadDemo" type="button">Load Demo Clients</button>
@@ -166,11 +140,11 @@
 
         <div class="col-3">
           <label>Plan Start (locked)</label>
-          <input id="planStartDisplay" class="mono" readonly placeholder="MM/DD/YYYY" />
+          <input id="planStart" type="date" readonly />
         </div>
         <div class="col-3">
           <label>Plan End (locked)</label>
-          <input id="planEndDisplay" class="mono" readonly placeholder="MM/DD/YYYY" />
+          <input id="planEnd" type="date" readonly />
         </div>
 
         <div class="col-4">
@@ -194,16 +168,6 @@
           <label>Total Time (auto, quarter-hours)</label>
           <input id="totalTime" readonly />
         </div>
-
-        <div class="col-12">
-          <div class="lockbar">
-            <span class="hint">
-              Coach PIN is ONLY used to unlock editing after coach signs. It does not block signing.
-            </span>
-            <button class="secondary tiny" id="unlockEdit" type="button">Unlock for Edit (Coach PIN)</button>
-            <button class="secondary tiny" id="lockNow" type="button">Lock Now</button>
-          </div>
-        </div>
       </div>
 
       <div class="rowhead">
@@ -212,107 +176,136 @@
       </div>
 
       <div class="rowhead">
-        <h2>Duties and Tasks (template per client)</h2>
+        <h2>Duties and Tasks</h2>
         <div class="btnbar">
           <button class="secondary tiny" id="addTask" type="button">Add Task</button>
+          <button class="secondary tiny" id="editTasks" type="button">Edit Tasks (template)</button>
         </div>
       </div>
 
-      <table class="tight">
+      <table class="tight" id="tasksTable">
         <thead>
           <tr>
-            <th style="width: 40%;">Task</th>
+            <th style="width: 36%;">Task</th>
             <th style="width: 14%;">Support</th>
             <th>Note (short)</th>
-            <th style="width: 70px;">Remove</th>
+            <th style="width: 90px;">Remove</th>
           </tr>
         </thead>
         <tbody id="tasksBody"></tbody>
       </table>
 
       <div class="rowhead">
-        <h2>Goals (template per client, supports can be multiple)</h2>
+        <h2>Goals (full text visible)</h2>
         <div class="btnbar">
           <button class="secondary tiny" id="addGoal" type="button">Add Goal</button>
+          <button class="secondary tiny" id="editGoals" type="button">Edit Goals (template)</button>
         </div>
       </div>
 
-      <table>
+      <table id="goalsTable">
         <thead>
           <tr>
-            <th style="width: 44%;">Goal (full text)</th>
-            <th style="width: 22%;">Support(s)</th>
+            <th style="width: 42%;">Goal (full text)</th>
+            <th style="width: 24%;">Prompts (code + count)</th>
             <th>Anecdotal Record</th>
-            <th style="width: 70px;">Remove</th>
+            <th style="width: 90px;">Remove</th>
           </tr>
         </thead>
         <tbody id="goalsBody"></tbody>
       </table>
 
       <div class="rowhead">
-        <h2>Additional Notes</h2>
+        <h2>Additional Notes (optional)</h2>
       </div>
       <textarea id="additionalNotes" placeholder="Scheduling changes, job highlights, employment needs, etc."></textarea>
 
       <div class="rowhead">
         <h2>Signatures</h2>
-        <div class="hint">
-          Client, Coach, Specialist. If you unlock after a signature, signatures get cleared.
+        <div class="hint">Client, Coach, Specialist. Unlocking for edits clears signatures.</div>
+      </div>
+
+      <div class="sigGrid">
+        <div class="sigCard">
+          <div class="sigTop">
+            <b>Client Signature</b>
+            <span class="pill" id="clientSigStatus">Not signed</span>
+          </div>
+          <canvas class="sigcanvas" id="clientCanvas"></canvas>
+          <div style="margin-top:8px;">
+            <label>Printed name</label>
+            <input id="clientPrinted" placeholder="Client printed name" />
+            <div class="sigMeta">
+              <span>Signed at: <span id="clientSignedAt">—</span></span>
+            </div>
+            <div class="btnbar" style="margin-top:8px;">
+              <button class="secondary tiny" id="clientClear" type="button">Clear</button>
+              <button class="tiny ok" id="clientSign" type="button">Sign (locks editing)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sigCard">
+          <div class="sigTop">
+            <b>Coach Signature</b>
+            <span class="pill" id="coachSigStatus">Not signed</span>
+          </div>
+          <canvas class="sigcanvas" id="coachCanvas"></canvas>
+          <div style="margin-top:8px;">
+            <label>Printed name</label>
+            <input id="coachPrinted" placeholder="Coach printed name" />
+            <div class="sigMeta">
+              <span>Signed at: <span id="coachSignedAt">—</span></span>
+            </div>
+            <div class="btnbar" style="margin-top:8px;">
+              <button class="secondary tiny" id="coachClear" type="button">Clear</button>
+              <button class="tiny" id="coachSign" type="button">Sign</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sigCard">
+          <div class="sigTop">
+            <b>Specialist Signature</b>
+            <span class="pill" id="specSigStatus">Not signed</span>
+          </div>
+          <canvas class="sigcanvas" id="specCanvas"></canvas>
+          <div style="margin-top:8px;">
+            <label>Printed name</label>
+            <input id="specPrinted" placeholder="Specialist printed name" />
+            <div class="sigMeta">
+              <span>Signed at: <span id="specSignedAt">—</span></span>
+            </div>
+            <div class="btnbar" style="margin-top:8px;">
+              <button class="secondary tiny" id="specClear" type="button">Clear</button>
+              <button class="tiny warn" id="specFinal" type="button">Sign (FINAL lock)</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="col-4">
-          <label>Client Signature</label>
-          <div class="sigwrap">
-            <canvas id="clientSigPad" class="sigcanvas"></canvas>
-            <div class="sigrow">
-              <div class="sigmeta">
-                Printed name:
-                <input id="clientSigName" placeholder="Client printed name" />
-                <div>Signed at: <span id="clientSigAt">—</span></div>
-              </div>
-              <div class="btnbar">
-                <button class="secondary tiny" id="clientClear" type="button">Clear</button>
-                <button class="tiny" id="clientSign" type="button">Sign</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="rowhead">
+        <h2>Unlock for Edits (PIN)</h2>
+        <div class="hint">PIN is ONLY used to unlock editing. Coach signing is never blocked by PIN.</div>
+      </div>
 
+      <div class="grid" style="align-items:end;">
         <div class="col-4">
-          <label>Coach Signature</label>
-          <div class="sigwrap">
-            <canvas id="coachSigPad" class="sigcanvas"></canvas>
-            <div class="sigrow">
-              <div class="sigmeta">
-                Printed name:
-                <input id="coachSigName" placeholder="Coach printed name" />
-                <div>Signed at: <span id="coachSigAt">—</span></div>
-              </div>
-              <div class="btnbar">
-                <button class="secondary tiny" id="coachClear" type="button">Clear</button>
-                <button class="tiny" id="coachSign" type="button">Sign (locks)</button>
-              </div>
-            </div>
-          </div>
+          <label>Specialist Name (for unlock log)</label>
+          <input id="unlockName" placeholder="Specialist name" />
         </div>
-
         <div class="col-4">
-          <label>Specialist Signature</label>
-          <div class="sigwrap">
-            <canvas id="specSigPad" class="sigcanvas"></canvas>
-            <div class="sigrow">
-              <div class="sigmeta">
-                Printed name:
-                <input id="specSigName" placeholder="Specialist printed name" />
-                <div>Signed at: <span id="specSigAt">—</span></div>
-              </div>
-              <div class="btnbar">
-                <button class="secondary tiny" id="specClear" type="button">Clear</button>
-                <button class="tiny" id="specSign" type="button">Sign (final)</button>
-              </div>
-            </div>
+          <label>PIN</label>
+          <input id="unlockPin" type="password" placeholder="PIN" />
+        </div>
+        <div class="col-4">
+          <label>Unlocked Date/Time (auto)</label>
+          <input id="unlockAt" readonly />
+        </div>
+        <div class="col-12">
+          <div class="btnbar">
+            <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
+            <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
           </div>
         </div>
       </div>
@@ -326,15 +319,13 @@
       </div>
 
       <div class="footer">
-        Local storage: clearing browser data nukes saved forms on that device. Hosting the page does not centralize data by itself.
+        Local storage: clearing browser data nukes saved forms on that device. Computers are loyal like that.
       </div>
     </div>
   </div>
 
 <script>
-  /***********************
-   * Defaults / Constants
-   ***********************/
+  // ---- Defaults / constants ----
   const DEFAULT_TASKS = [
     "Clock in & out",
     "Bag groceries for customers",
@@ -344,50 +335,43 @@
   ];
 
   const DEFAULT_GOALS = [
-    "1. When the client stops at customer service to get water, they will independently redirect back to work tasks within 1 minute, 50% of the time for 3 consecutive months.",
-    "2. Client will independently put quality into work when retrieving carts by organizing them in the cart corral based on type and/or size, 90% of the time for 3 consecutive months.",
-    "3. When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
+    "When the client stops at customer service to get water, they will independently redirect back to work tasks within 1 minute, 50% of the time for 3 consecutive months.",
+    "Client will independently put quality into work when retrieving carts by organizing them in the cart corral based on type and/or size, 90% of the time for 3 consecutive months.",
+    "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
   ];
 
   const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
 
   const CLIENTS_KEY = "witco_clients_v2";
-  const ENTRY_KEY_BASE = "witco_ta_entry_v6";     // per-client entry
-  const LOCK_KEY_BASE  = "witco_ta_lock_v6";      // per-client lock + sigs + audit
-
-  const LOCK_STATES = {
-    DRAFT: "DRAFT",
-    LOCKED: "LOCKED",
-    FINAL: "FINAL"
-  };
+  const STORAGE_KEY_BASE = "witco_supported_employment_form_v6";
+  const PIN_DEFAULT = "2468"; // change this to whatever you want
 
   const el = (id) => document.getElementById(id);
 
-  /***********************
-   * Date helpers
-   ***********************/
-  function normalizeUSDateToISO(us) {
-    const s = (us || "").trim();
-    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!m) return "";
-    const mm = m[1].padStart(2,"0");
-    const dd = m[2].padStart(2,"0");
-    const yyyy = m[3];
-    return `${yyyy}-${mm}-${dd}`;
+  // Lock states:
+  // unlocked: can edit
+  // locked: client signed (editing blocked unless PIN unlock)
+  // final: specialist signed final (editing blocked, no unlock)
+  function setSaveState(text, kind="") {
+    const p = el("saveState");
+    p.textContent = text;
+    p.classList.remove("bad","good");
+    if (kind === "bad") p.classList.add("bad");
+    if (kind === "good") p.classList.add("good");
   }
 
-  function isoToUS(iso) {
-    const s = (iso || "").trim();
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return "";
-    return `${m[2]}/${m[3]}/${m[1]}`;
+  function setLockPill(state) {
+    const p = el("lockStatePill");
+    p.classList.remove("bad","good");
+    if (state === "unlocked") { p.textContent = "Unlocked"; p.classList.add("good"); }
+    else if (state === "locked") { p.textContent = "Locked"; p.classList.add("bad"); }
+    else if (state === "final") { p.textContent = "FINAL Locked"; p.classList.add("bad"); }
+    else { p.textContent = "Unlocked"; }
   }
 
-  /***********************
-   * Storage helpers
-   ***********************/
-  function entryKeyFor(clientId) { return `${ENTRY_KEY_BASE}:${clientId}`; }
-  function lockKeyFor(clientId)  { return `${LOCK_KEY_BASE}:${clientId}`; }
+  function storageKeyFor(clientId) {
+    return `${STORAGE_KEY_BASE}:${clientId}`;
+  }
 
   function getClients() {
     try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); }
@@ -403,97 +387,10 @@
     return el("clientSelect").value || "";
   }
 
-  function setSaveState(text) { el("saveState").textContent = text; }
-  function setLockBadge(state) { el("lockStateBadge").textContent = state; }
-
-  function getLockBundle(clientId) {
-    try { return JSON.parse(localStorage.getItem(lockKeyFor(clientId)) || "null"); }
-    catch { return null; }
-  }
-  function saveLockBundle(clientId, bundle) {
-    localStorage.setItem(lockKeyFor(clientId), JSON.stringify(bundle));
-  }
-
-  /***********************
-   * Locking logic
-   ***********************/
-  function defaultLockBundle() {
-    return {
-      state: LOCK_STATES.DRAFT,
-      audit: [],
-      sigs: {
-        client: { name:"", at:"", dataUrl:"" },
-        coach:  { name:"", at:"", dataUrl:"" },
-        spec:   { name:"", at:"", dataUrl:"" }
-      }
-    };
-  }
-
-  function logAudit(clientId, action, detail="") {
-    const b = getLockBundle(clientId) || defaultLockBundle();
-    b.audit = b.audit || [];
-    b.audit.push({ at: new Date().toISOString(), action, detail });
-    saveLockBundle(clientId, b);
-  }
-
-  function isLockedState(state) {
-    return state === LOCK_STATES.LOCKED || state === LOCK_STATES.FINAL;
-  }
-
-  function setInputsDisabled(disabled) {
-    const ids = ["workLocation","entryDate","timeIn","timeOut","additionalNotes"];
-    ids.forEach(id => el(id).disabled = disabled);
-
-    ["tasksBody","goalsBody"].forEach(tid => {
-      const tbody = el(tid);
-      [...tbody.querySelectorAll("input, textarea, select, button")].forEach(n => n.disabled = disabled);
-    });
-
-    el("addTask").disabled = disabled;
-    el("addGoal").disabled = disabled;
-
-    const cid = currentClientId();
-    const b = cid ? (getLockBundle(cid) || defaultLockBundle()) : defaultLockBundle();
-    el("unlockEdit").disabled = !(b.state === LOCK_STATES.LOCKED || b.state === LOCK_STATES.FINAL);
-  }
-
-  function applyLockUI() {
-    const cid = currentClientId();
-    if (!cid) { setLockBadge(LOCK_STATES.DRAFT); return; }
-    const b = getLockBundle(cid) || defaultLockBundle();
-    setLockBadge(b.state);
-    setInputsDisabled(isLockedState(b.state));
-    applySigsToUI(b.sigs || defaultLockBundle().sigs);
-  }
-
-  /***********************
-   * Time calc
-   ***********************/
-  function minutesBetween(t1, t2) {
-    if (!t1 || !t2) return null;
-    const [h1,m1] = t1.split(":").map(Number);
-    const [h2,m2] = t2.split(":").map(Number);
-    if ([h1,m1,h2,m2].some(x => Number.isNaN(x))) return null;
-    let a = h1*60+m1, b = h2*60+m2;
-    if (b < a) b += 24*60;
-    return b - a;
-  }
-  function minutesToQuarterHours(minutes) {
-    if (minutes == null) return "";
-    const rounded = Math.round(minutes / 15) * 15;
-    return (rounded / 60).toFixed(2);
-  }
-  function recalcTotalTime() {
-    const mins = minutesBetween(el("timeIn").value, el("timeOut").value);
-    el("totalTime").value = minutesToQuarterHours(mins);
-  }
-
-  /***********************
-   * Render clients
-   ***********************/
-  function renderClientSelect(selectedId=null) {
+  function renderClientSelect(selectedId = null) {
     const clients = getClients();
     el("clientSelect").innerHTML = "";
+
     if (clients.length === 0) {
       const opt = document.createElement("option");
       opt.value = "";
@@ -501,29 +398,62 @@
       el("clientSelect").appendChild(opt);
       return;
     }
+
     clients.forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.id;
       opt.textContent = c.name;
       el("clientSelect").appendChild(opt);
     });
+
     el("clientSelect").value = selectedId || clients[0].id;
   }
 
-  function lockPlanDisplay(client) {
-    el("planStartDisplay").value = isoToUS(client?.planStart || "");
-    el("planEndDisplay").value = isoToUS(client?.planEnd || "");
+  // ---- Date helpers ----
+  function todayISO() {
+    const d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+  function nowStamp() {
+    return new Date().toLocaleString();
   }
 
-  /***********************
-   * Tasks + Goals tables
-   ***********************/
+  function normalizeToISO(usDate) {
+    // Accept MM/DD/YYYY and convert to YYYY-MM-DD
+    const parts = (usDate || "").trim().split("/");
+    if (parts.length !== 3) return (usDate || "").trim();
+    const [mm, dd, yyyy] = parts;
+    if (!yyyy || yyyy.length < 4) return (usDate || "").trim();
+    return `${yyyy}-${(mm||"").padStart(2,"0")}-${(dd||"").padStart(2,"0")}`;
+  }
+
+  // ---- Time calc ----
+  function minutesBetween(t1, t2) {
+    if (!t1 || !t2) return null;
+    const [h1,m1] = t1.split(":").map(Number);
+    const [h2,m2] = t2.split(":").map(Number);
+    if ([h1,m1,h2,m2].some(x => Number.isNaN(x))) return null;
+    let a = h1*60+m1, b = h2*60+m2;
+    if (b < a) b += 24*60; // wrap past midnight
+    return b - a;
+  }
+  function minutesToQuarterHours(minutes) {
+    if (minutes == null) return "";
+    const roundedMinutes = Math.round(minutes / 15) * 15;
+    const decimalHours = roundedMinutes / 60;
+    return decimalHours.toFixed(2);
+  }
+  function recalcTotalTime() {
+    const mins = minutesBetween(el("timeIn").value, el("timeOut").value);
+    el("totalTime").value = minutesToQuarterHours(mins);
+  }
+
+  // ---- UI builders ----
   function makeSupportSelect(value="") {
     const s = document.createElement("select");
     SUPPORT_LEVELS.forEach(v => {
       const o = document.createElement("option");
-      o.value = v;
-      o.textContent = v || "(select)";
+      o.value = v; o.textContent = v || "(select)";
       if (v === value) o.selected = true;
       s.appendChild(o);
     });
@@ -535,35 +465,42 @@
     ta.style.height = (ta.scrollHeight) + "px";
   }
 
-  // TASK ROW (single support)
+  function setPlanDatesLocked(planStart, planEnd) {
+    el("planStart").value = planStart || "";
+    el("planEnd").value = planEnd || "";
+    el("planStart").disabled = true;
+    el("planEnd").disabled = true;
+  }
+
+  // ---- Tasks table ----
   function addTaskRow(tbody, rowData) {
     const tr = document.createElement("tr");
 
     const tdTitle = document.createElement("td");
-    tdTitle.setAttribute("data-label", "Task");
+    tdTitle.setAttribute("data-label","Task");
     const titleInput = document.createElement("input");
     titleInput.value = rowData.title || "";
     titleInput.placeholder = "Task...";
     tdTitle.appendChild(titleInput);
 
     const tdSupport = document.createElement("td");
-    tdSupport.setAttribute("data-label", "Support");
+    tdSupport.setAttribute("data-label","Support");
     const supportSelect = makeSupportSelect(rowData.support || "");
     tdSupport.appendChild(supportSelect);
 
     const tdNote = document.createElement("td");
-    tdNote.setAttribute("data-label", "Note");
+    tdNote.setAttribute("data-label","Note (short)");
     const noteInput = document.createElement("input");
     noteInput.value = rowData.note || "";
     noteInput.placeholder = "Short note...";
     tdNote.appendChild(noteInput);
 
     const tdRemove = document.createElement("td");
-    tdRemove.setAttribute("data-label", "Remove");
+    tdRemove.setAttribute("data-label","Remove");
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "secondary tiny";
-    btn.textContent = "X";
+    btn.textContent = "Remove";
     btn.addEventListener("click", () => { tr.remove(); autosave(); });
     tdRemove.appendChild(btn);
 
@@ -580,155 +517,12 @@
     tbody.appendChild(tr);
   }
 
-  // GOAL supports (multiple)
-  function makeSupportLine(item, onChange, onRemove) {
-    const wrap = document.createElement("div");
-    wrap.className = "supportLine";
-
-    const sel = makeSupportSelect(item?.code || "");
-    const count = document.createElement("input");
-    count.type = "number";
-    count.min = "1";
-    count.step = "1";
-    count.value = item?.count ?? "";
-    count.placeholder = "x#";
-
-    const rm = document.createElement("button");
-    rm.type = "button";
-    rm.className = "secondary tiny";
-    rm.textContent = "X";
-    rm.addEventListener("click", () => { onRemove(); });
-
-    sel.addEventListener("change", onChange);
-    count.addEventListener("input", onChange);
-
-    wrap.appendChild(sel);
-    wrap.appendChild(count);
-    wrap.appendChild(rm);
-    return { wrap, sel, count };
-  }
-
-  function supportSummary(supports) {
-    const arr = (supports || []).filter(s => s.code && s.count);
-    if (!arr.length) return "";
-    return arr.map(s => `${s.code} x${s.count}`).join(", ");
-  }
-
-  function addGoalRow(tbody, rowData) {
-    const tr = document.createElement("tr");
-
-    const tdGoal = document.createElement("td");
-    tdGoal.setAttribute("data-label", "Goal (full text)");
-    const goalTA = document.createElement("textarea");
-    goalTA.value = rowData.title || "";
-    goalTA.placeholder = "Goal (full text)...";
-    tdGoal.appendChild(goalTA);
-
-    const tdSupport = document.createElement("td");
-    tdSupport.setAttribute("data-label", "Prompts (code + count)");
-    const supportsWrap = document.createElement("div");
-    supportsWrap.className = "supports";
-
-    const supportsList = document.createElement("div");
-    const supportsHint = document.createElement("div");
-    supportsHint.className = "hint";
-    supportsHint.textContent = "Add prompt levels (ex: I x2, IR x5).";
-
-    const supportsSummary = document.createElement("div");
-    supportsSummary.className = "hint";
-    supportsSummary.style.marginTop = "4px";
-
-    const btnAddSupport = document.createElement("button");
-    btnAddSupport.type = "button";
-    btnAddSupport.className = "secondary tiny";
-    btnAddSupport.textContent = "Add Prompt";
-
-    const supportState = Array.isArray(rowData.supports) ? rowData.supports : [];
-    tr._supports = supportState.map(s => ({ code: s.code || "", count: s.count || "" }));
-
-    function rerenderSupports() {
-      supportsList.innerHTML = "";
-      supportsSummary.textContent = tr._supports.length ? ("Current: " + supportSummary(tr._supports)) : "";
-
-      tr._supports.forEach((item, idx) => {
-        const line = makeSupportLine(
-          item,
-          () => {
-            item.code = line.sel.value;
-            item.count = line.count.value ? Number(line.count.value) : "";
-            supportsSummary.textContent = tr._supports.length ? ("Current: " + supportSummary(tr._supports)) : "";
-            autosave();
-          },
-          () => {
-            tr._supports.splice(idx, 1);
-            rerenderSupports();
-            autosave();
-          }
-        );
-        supportsList.appendChild(line.wrap);
-      });
-    }
-
-    btnAddSupport.addEventListener("click", () => {
-      tr._supports.push({ code:"", count:"" });
-      rerenderSupports();
-      autosave();
-    });
-
-    supportsWrap.appendChild(supportsHint);
-    supportsWrap.appendChild(supportsList);
-    supportsWrap.appendChild(btnAddSupport);
-    supportsWrap.appendChild(supportsSummary);
-    tdSupport.appendChild(supportsWrap);
-
-    const tdNote = document.createElement("td");
-    tdNote.setAttribute("data-label", "Anecdotal Record");
-    const noteTA = document.createElement("textarea");
-    noteTA.value = rowData.note || "";
-    noteTA.placeholder = "Anecdotal record...";
-    tdNote.appendChild(noteTA);
-
-    const tdRemove = document.createElement("td");
-    tdRemove.setAttribute("data-label", "Remove");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "secondary tiny";
-    btn.textContent = "X";
-    btn.addEventListener("click", () => { tr.remove(); autosave(); });
-    tdRemove.appendChild(btn);
-
-    tr.appendChild(tdGoal);
-    tr.appendChild(tdSupport);
-    tr.appendChild(tdNote);
-    tr.appendChild(tdRemove);
-
-    const resizeAll = () => { autosizeTA(goalTA); autosizeTA(noteTA); };
-    goalTA.addEventListener("input", () => { resizeAll(); autosave(); });
-    noteTA.addEventListener("input", () => { resizeAll(); autosave(); });
-
-    setTimeout(() => { resizeAll(); rerenderSupports(); }, 0);
-
-    tbody.appendChild(tr);
-  }
-
   function getTasks() {
     const rows = [...el("tasksBody").querySelectorAll("tr")];
     return rows.map(tr => {
       const inputs = tr.querySelectorAll("input, select");
       return { title: inputs[0].value.trim(), support: inputs[1].value, note: inputs[2].value.trim() };
-    }).filter(r => r.title || r.support || r.note);
-  }
-
-  function getGoals() {
-    const rows = [...el("goalsBody").querySelectorAll("tr")];
-    return rows.map(tr => {
-      const tas = tr.querySelectorAll("textarea");
-      return {
-        title: tas[0].value.trim(),
-        supports: (tr._supports || []).map(s => ({ code: s.code, count: s.count })).filter(s => s.code && s.count),
-        note: tas[1].value.trim()
-      };
-    }).filter(r => r.title || (r.supports && r.supports.length) || r.note);
+    });
   }
 
   function setTasks(data) {
@@ -736,22 +530,408 @@
     (data || []).forEach(d => addTaskRow(el("tasksBody"), d));
   }
 
+  // ---- Goals table ----
+  function addPromptLine(container, promptData) {
+    const line = document.createElement("div");
+    line.className = "supportLine";
+
+    const sel = makeSupportSelect(promptData?.code || "");
+    const cnt = document.createElement("input");
+    cnt.type = "number";
+    cnt.min = "1";
+    cnt.step = "1";
+    cnt.placeholder = "Count";
+    cnt.value = (promptData?.count ?? 1);
+
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "secondary tiny";
+    rm.textContent = "X";
+    rm.addEventListener("click", () => { line.remove(); autosave(); });
+
+    [sel, cnt].forEach(n => {
+      n.addEventListener("change", autosave);
+      n.addEventListener("input", autosave);
+    });
+
+    line.appendChild(sel);
+    line.appendChild(cnt);
+    line.appendChild(rm);
+    container.appendChild(line);
+  }
+
+  function addGoalRow(tbody, rowData) {
+    const tr = document.createElement("tr");
+
+    // Goal text
+    const tdGoal = document.createElement("td");
+    tdGoal.setAttribute("data-label","Goal (full text)");
+    const goalTA = document.createElement("textarea");
+    goalTA.value = rowData.title || "";
+    goalTA.placeholder = "Goal (full text)...";
+    tdGoal.appendChild(goalTA);
+
+    // Prompts (multi)
+    const tdPrompts = document.createElement("td");
+    tdPrompts.setAttribute("data-label","Prompts (code + count)");
+    const promptsWrap = document.createElement("div");
+    promptsWrap.className = "supportLines";
+
+    const prompts = Array.isArray(rowData.prompts) ? rowData.prompts : [];
+    if (prompts.length) {
+      prompts.forEach(p => addPromptLine(promptsWrap, p));
+    } else {
+      addPromptLine(promptsWrap, { code:"", count:1 });
+    }
+
+    const addP = document.createElement("button");
+    addP.type = "button";
+    addP.className = "secondary tiny";
+    addP.textContent = "+ Prompt";
+    addP.addEventListener("click", () => { addPromptLine(promptsWrap, { code:"", count:1 }); autosave(); });
+
+    tdPrompts.appendChild(promptsWrap);
+    tdPrompts.appendChild(addP);
+
+    // Anecdotal
+    const tdNote = document.createElement("td");
+    tdNote.setAttribute("data-label","Anecdotal Record");
+    const noteTA = document.createElement("textarea");
+    noteTA.value = rowData.note || "";
+    noteTA.placeholder = "Anecdotal record...";
+    tdNote.appendChild(noteTA);
+
+    // Remove
+    const tdRemove = document.createElement("td");
+    tdRemove.setAttribute("data-label","Remove");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "secondary tiny";
+    btn.textContent = "Remove";
+    btn.addEventListener("click", () => { tr.remove(); autosave(); });
+    tdRemove.appendChild(btn);
+
+    tr.appendChild(tdGoal);
+    tr.appendChild(tdPrompts);
+    tr.appendChild(tdNote);
+    tr.appendChild(tdRemove);
+
+    const resizeAll = () => { autosizeTA(goalTA); autosizeTA(noteTA); };
+    goalTA.addEventListener("input", () => { resizeAll(); autosave(); });
+    noteTA.addEventListener("input", () => { resizeAll(); autosave(); });
+
+    setTimeout(resizeAll, 0);
+    tbody.appendChild(tr);
+  }
+
+  function getGoals() {
+    const rows = [...el("goalsBody").querySelectorAll("tr")];
+    return rows.map(tr => {
+      const tas = tr.querySelectorAll("textarea");
+      const goalText = tas[0]?.value.trim() || "";
+      const noteText = tas[1]?.value.trim() || "";
+
+      const promptLines = [...tr.querySelectorAll(".supportLine")];
+      const prompts = promptLines.map(line => {
+        const sel = line.querySelector("select");
+        const cnt = line.querySelector('input[type="number"]');
+        return { code: sel?.value || "", count: parseInt(cnt?.value || "0", 10) || 0 };
+      });
+
+      return { title: goalText, prompts, note: noteText };
+    });
+  }
+
   function setGoals(data) {
     el("goalsBody").innerHTML = "";
     (data || []).forEach(d => addGoalRow(el("goalsBody"), d));
   }
 
-  /***********************
-   * Snapshot / Apply
-   ***********************/
-  function snapshotEntry() {
+  // ---- Lock / edit gating ----
+  function isLocked(state) { return state === "locked" || state === "final"; }
+
+  function setEditingEnabled(enabled) {
+    // Disable most inputs when locked, but keep signing available.
+    const ids = ["workLocation","entryDate","timeIn","timeOut","additionalNotes","clientPrinted","coachPrinted","specPrinted"];
+    ids.forEach(id => {
+      if (!el(id)) return;
+      // Printed names should still be editable for signing even when locked
+      if (id.endsWith("Printed")) return;
+      el(id).disabled = !enabled;
+    });
+
+    // disable add/remove and table inputs
+    const disableIn = (root, on) => {
+      root.querySelectorAll("input, textarea, select, button").forEach(node => {
+        // don't disable signature buttons/canvas stuff here
+        node.disabled = on;
+      });
+    };
+
+    // Only lock the tasks/goals editing, not the signature actions
+    const tasksRoot = el("tasksBody");
+    const goalsRoot = el("goalsBody");
+
+    tasksRoot.querySelectorAll("input, select, button").forEach(n => n.disabled = !enabled);
+    goalsRoot.querySelectorAll("textarea, select, input, button").forEach(n => n.disabled = !enabled);
+
+    el("addTask").disabled = !enabled;
+    el("addGoal").disabled = !enabled;
+    el("editTasks").disabled = !enabled;
+    el("editGoals").disabled = !enabled;
+
+    // Save still allowed if enabled, blocked by validation if not complete anyway
+    el("saveNow").disabled = !enabled;
+  }
+
+  function updateLockUI() {
+    const s = formState.lockState || "unlocked";
+    setLockPill(s);
+    // final lock: no unlock
+    el("unlockBtn").disabled = (s === "final");
+    el("relockBtn").disabled = (s === "final");
+    // editing enabled only if unlocked
+    setEditingEnabled(s === "unlocked");
+  }
+
+  // ---- Signature pad ----
+  function createSigPad(canvasId, getData, setData) {
+    const canvas = el(canvasId);
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+    let last = null;
+
+    function resizeToCSS() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      // Set backing store size
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+      // Reset transform and scale
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Redraw from saved image if exists
+      redraw();
+    }
+
+    function clear() {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      last = null;
+    }
+
+    function redraw() {
+      clear();
+      const dataUrl = getData();
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const rect = canvas.getBoundingClientRect();
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = dataUrl;
+    }
+
+    function posFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left);
+      const y = (e.clientY - rect.top);
+      return { x, y };
+    }
+
+    function start(e) {
+      if (canvas.disabled) return;
+      drawing = true;
+      last = posFromEvent(e);
+      canvas.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    }
+
+    function move(e) {
+      if (!drawing) return;
+      const p = posFromEvent(e);
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#111";
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      e.preventDefault();
+    }
+
+    function end(e) {
+      if (!drawing) return;
+      drawing = false;
+      last = null;
+      // Persist drawing to dataURL for storage
+      const rect = canvas.getBoundingClientRect();
+      const tmp = document.createElement("canvas");
+      tmp.width = Math.max(1, Math.round(rect.width));
+      tmp.height = Math.max(1, Math.round(rect.height));
+      const tctx = tmp.getContext("2d");
+      // draw scaled down current canvas
+      tctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
+      setData(tmp.toDataURL("image/png"));
+      autosave();
+      e.preventDefault();
+    }
+
+    canvas.addEventListener("pointerdown", start);
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", end);
+
+    window.addEventListener("resize", resizeToCSS);
+    setTimeout(resizeToCSS, 0);
+
+    return { canvas, redraw, clear, resizeToCSS };
+  }
+
+  // ---- Validation ----
+  function clearRequiredHighlights() {
+    document.querySelectorAll(".req-bad").forEach(x => x.classList.remove("req-bad"));
+  }
+  function markBad(node) {
+    if (!node) return;
+    node.classList.add("req-bad");
+  }
+
+  function validateForm({ forAction="save" } = {}) {
+    clearRequiredHighlights();
+    const missing = [];
+
+    // client
+    if (!currentClientId()) { missing.push("Client must be selected"); markBad(el("clientSelect")); }
+
+    // plan dates (locked but required)
+    if (!el("planStart").value) { missing.push("Plan Start is required"); markBad(el("planStart")); }
+    if (!el("planEnd").value) { missing.push("Plan End is required"); markBad(el("planEnd")); }
+
+    // work fields
+    if (!el("workLocation").value.trim()) { missing.push("Work Location is required"); markBad(el("workLocation")); }
+    if (!el("entryDate").value) { missing.push("Date is required"); markBad(el("entryDate")); }
+    if (!el("timeIn").value) { missing.push("Time In is required"); markBad(el("timeIn")); }
+    if (!el("timeOut").value) { missing.push("Time Out is required"); markBad(el("timeOut")); }
+    if (!el("totalTime").value) { missing.push("Total Time must calculate"); markBad(el("totalTime")); }
+
+    // tasks required (at least 1)
+    const taskRows = [...el("tasksBody").querySelectorAll("tr")];
+    if (taskRows.length === 0) missing.push("At least 1 Task is required");
+    taskRows.forEach((tr, i) => {
+      const title = tr.querySelector('td[data-label="Task"] input')?.value.trim() || "";
+      const sup = tr.querySelector('td[data-label="Support"] select')?.value || "";
+      if (!title) { missing.push(`Task #${i+1}: Task text required`); markBad(tr.querySelector('td[data-label="Task"] input')); }
+      if (!sup) { missing.push(`Task #${i+1}: Support code required`); markBad(tr.querySelector('td[data-label="Support"] select')); }
+    });
+
+    // goals required (at least 1)
+    const goalRows = [...el("goalsBody").querySelectorAll("tr")];
+    if (goalRows.length === 0) missing.push("At least 1 Goal is required");
+    goalRows.forEach((tr, i) => {
+      const goalTA = tr.querySelector('td[data-label="Goal (full text)"] textarea');
+      const goalText = goalTA?.value.trim() || "";
+      if (!goalText) { missing.push(`Goal #${i+1}: Goal text required`); markBad(goalTA); }
+
+      const promptLines = [...tr.querySelectorAll(".supportLine")];
+      if (promptLines.length === 0) {
+        missing.push(`Goal #${i+1}: At least 1 prompt required`);
+        tr.classList.add("req-bad");
+      } else {
+        let anyValid = false;
+        promptLines.forEach(line => {
+          const code = line.querySelector("select")?.value || "";
+          const count = parseInt(line.querySelector('input[type="number"]')?.value || "0", 10) || 0;
+          if (code && count > 0) anyValid = true;
+        });
+        if (!anyValid) {
+          missing.push(`Goal #${i+1}: Prompt must have code + count (ex: IR x5)`);
+          const first = promptLines[0];
+          markBad(first.querySelector("select"));
+          markBad(first.querySelector('input[type="number"]'));
+        }
+      }
+    });
+
+    // Signature action requirements
+    if (forAction === "clientSign") {
+      if (!el("clientPrinted").value.trim()) { missing.push("Client printed name required"); markBad(el("clientPrinted")); }
+      if (!formState.sigs.client.dataUrl) { missing.push("Client signature must be drawn"); markBad(el("clientCanvas")); }
+    }
+    if (forAction === "coachSign") {
+      if (!el("coachPrinted").value.trim()) { missing.push("Coach printed name required"); markBad(el("coachPrinted")); }
+      if (!formState.sigs.coach.dataUrl) { missing.push("Coach signature must be drawn"); markBad(el("coachCanvas")); }
+    }
+    if (forAction === "specFinal") {
+      if (!el("specPrinted").value.trim()) { missing.push("Specialist printed name required"); markBad(el("specPrinted")); }
+      if (!formState.sigs.spec.dataUrl) { missing.push("Specialist signature must be drawn"); markBad(el("specCanvas")); }
+    }
+
+    return { ok: missing.length === 0, missing };
+  }
+
+  function blockIfInvalid(actionLabel, options) {
+    const { ok, missing } = validateForm(options);
+    if (ok) return true;
+    alert(
+      `${actionLabel} blocked.\n\nMissing / incomplete:\n- ` +
+      missing.join("\n- ")
+    );
+    setSaveState("Fix required fields", "bad");
+    return false;
+  }
+
+  // ---- Form state ----
+  const formState = {
+    lockState: "unlocked",
+    unlock: { name:"", at:"" },
+    sigs: {
+      client: { printed:"", signedAt:"", dataUrl:"" },
+      coach: { printed:"", signedAt:"", dataUrl:"" },
+      spec:  { printed:"", signedAt:"", dataUrl:"" }
+    }
+  };
+
+  function clearAllSignatures() {
+    formState.sigs.client = { printed: el("clientPrinted").value.trim(), signedAt:"", dataUrl:"" };
+    formState.sigs.coach  = { printed: el("coachPrinted").value.trim(),  signedAt:"", dataUrl:"" };
+    formState.sigs.spec   = { printed: el("specPrinted").value.trim(),   signedAt:"", dataUrl:"" };
+
+    el("clientSignedAt").textContent = "—";
+    el("coachSignedAt").textContent = "—";
+    el("specSignedAt").textContent = "—";
+    setSigStatus("client", false);
+    setSigStatus("coach", false);
+    setSigStatus("spec", false);
+
+    sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
+  }
+
+  function setSigStatus(which, signed) {
+    const map = {
+      client: el("clientSigStatus"),
+      coach: el("coachSigStatus"),
+      spec: el("specSigStatus"),
+    };
+    const pill = map[which];
+    pill.classList.remove("bad","good");
+    if (signed) { pill.textContent = "Signed"; pill.classList.add("good"); }
+    else { pill.textContent = "Not signed"; pill.classList.add("bad"); }
+  }
+
+  // ---- Snapshot / apply ----
+  function snapshot() {
     const cid = currentClientId();
     const client = getClientById(cid);
     return {
+      version: 6,
       clientId: cid,
       clientName: client?.name || "",
-      planStart: client?.planStart || "",
-      planEnd: client?.planEnd || "",
+      planStart: el("planStart").value,
+      planEnd: el("planEnd").value,
       workLocation: el("workLocation").value,
       entryDate: el("entryDate").value,
       timeIn: el("timeIn").value,
@@ -759,112 +939,159 @@
       totalTime: el("totalTime").value,
       tasks: getTasks(),
       goals: getGoals(),
-      additionalNotes: el("additionalNotes").value
+      additionalNotes: el("additionalNotes").value,
+
+      lockState: formState.lockState,
+      unlock: {
+        name: el("unlockName").value,
+        at: el("unlockAt").value
+      },
+      sigs: {
+        client: { printed: el("clientPrinted").value, signedAt: formState.sigs.client.signedAt, dataUrl: formState.sigs.client.dataUrl },
+        coach:  { printed: el("coachPrinted").value,  signedAt: formState.sigs.coach.signedAt,  dataUrl: formState.sigs.coach.dataUrl },
+        spec:   { printed: el("specPrinted").value,   signedAt: formState.sigs.spec.signedAt,   dataUrl: formState.sigs.spec.dataUrl }
+      }
     };
   }
 
-  function applyEntry(data) {
+  function apply(data) {
+    // Plan dates always from client record (locked), ignore imported ones
     el("workLocation").value = data.workLocation || "";
     el("entryDate").value = data.entryDate || "";
     el("timeIn").value = data.timeIn || "";
     el("timeOut").value = data.timeOut || "";
     recalcTotalTime();
 
-    setTasks(data.tasks || []);
-    setGoals(data.goals || []);
+    setTasks(Array.isArray(data.tasks) ? data.tasks : []);
+    setGoals(Array.isArray(data.goals) ? data.goals : []);
 
     el("additionalNotes").value = data.additionalNotes || "";
+
+    // signatures + lock state
+    formState.lockState = data.lockState || "unlocked";
+    el("unlockName").value = data.unlock?.name || "";
+    el("unlockAt").value = data.unlock?.at || "";
+
+    // printed names
+    el("clientPrinted").value = data.sigs?.client?.printed || "";
+    el("coachPrinted").value  = data.sigs?.coach?.printed || "";
+    el("specPrinted").value   = data.sigs?.spec?.printed || "";
+
+    // signedAt + images
+    formState.sigs.client.signedAt = data.sigs?.client?.signedAt || "";
+    formState.sigs.coach.signedAt  = data.sigs?.coach?.signedAt || "";
+    formState.sigs.spec.signedAt   = data.sigs?.spec?.signedAt || "";
+
+    formState.sigs.client.dataUrl = data.sigs?.client?.dataUrl || "";
+    formState.sigs.coach.dataUrl  = data.sigs?.coach?.dataUrl || "";
+    formState.sigs.spec.dataUrl   = data.sigs?.spec?.dataUrl || "";
+
+    el("clientSignedAt").textContent = formState.sigs.client.signedAt || "—";
+    el("coachSignedAt").textContent  = formState.sigs.coach.signedAt  || "—";
+    el("specSignedAt").textContent   = formState.sigs.spec.signedAt   || "—";
+
+    setSigStatus("client", !!formState.sigs.client.signedAt);
+    setSigStatus("coach", !!formState.sigs.coach.signedAt);
+    setSigStatus("spec",  !!formState.sigs.spec.signedAt);
+
+    sigPads.client.redraw();
+    sigPads.coach.redraw();
+    sigPads.spec.redraw();
+
+    updateLockUI();
   }
 
-  function loadSavedEntry(clientId) {
-    const raw = localStorage.getItem(entryKeyFor(clientId));
-    if (!raw) return false;
-    try {
-      applyEntry(JSON.parse(raw));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function loadClientTemplate(client) {
-    lockPlanDisplay(client);
-    el("workLocation").value = client.workLocation || "";
-    el("entryDate").value = new Date().toISOString().slice(0,10);
-    el("timeIn").value = "";
-    el("timeOut").value = "";
-    el("totalTime").value = "";
-    el("additionalNotes").value = "";
-
-    const t = (client.tasks && client.tasks.length) ? client.tasks : DEFAULT_TASKS;
-    const g = (client.goals && client.goals.length) ? client.goals : DEFAULT_GOALS;
-
-    setTasks(t.map(x => ({ title: x, support:"", note:"" })));
-    setGoals(g.map(x => ({ title: x, supports: [], note:"" })));
-
-    recalcTotalTime();
-  }
-
-  /***********************
-   * Autosave
-   ***********************/
+  // ---- Autosave ----
   let saveTimer = null;
   function autosave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       const cid = currentClientId();
       if (!cid) return;
-
-      const b = getLockBundle(cid) || defaultLockBundle();
-      if (isLockedState(b.state)) {
-        setSaveState("Locked (no edits)");
-        return;
-      }
-
-      localStorage.setItem(entryKeyFor(cid), JSON.stringify(snapshotEntry()));
-      setSaveState("Saved");
-      setTimeout(() => setSaveState("Saved (idle)"), 700);
+      localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+      setSaveState("Saved", "good");
+      setTimeout(() => setSaveState("Saved (idle)", ""), 800);
     }, 150);
   }
 
-  /***********************
-   * Client add/edit
-   ***********************/
-  function addOrUpdateClient(existingId=null) {
+  function loadClientTemplate(client) {
+    setPlanDatesLocked(client.planStart, client.planEnd);
+    el("workLocation").value = client.workLocation || "";
+    el("entryDate").value = todayISO();
+    el("timeIn").value = "";
+    el("timeOut").value = "";
+    el("totalTime").value = "";
+    el("additionalNotes").value = "";
+
+    setTasks((client.tasks || DEFAULT_TASKS).map(t => ({ title: t, support: "", note: "" })));
+    setGoals((client.goals || DEFAULT_GOALS).map(g => ({
+      title: g,
+      prompts: [{ code:"", count:1 }],
+      note: ""
+    })));
+
+    // reset lock/sigs
+    formState.lockState = "unlocked";
+    el("unlockName").value = "";
+    el("unlockAt").value = "";
+    clearAllSignatures();
+
+    updateLockUI();
+    recalcTotalTime();
+  }
+
+  function loadSavedForClient(clientId) {
+    const raw = localStorage.getItem(storageKeyFor(clientId));
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      apply(data);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function onClientChange() {
+    const cid = currentClientId();
+    const client = getClientById(cid);
+    if (!client) {
+      setSaveState("No client selected", "bad");
+      return;
+    }
+
+    setPlanDatesLocked(client.planStart, client.planEnd);
+
+    const loaded = loadSavedForClient(cid);
+    if (!loaded) loadClientTemplate(client);
+
+    setSaveState(loaded ? "Loaded saved entry" : "Loaded template", "good");
+  }
+
+  // ---- Client add/edit ----
+  function addOrUpdateClient(existingId = null) {
     const clients = getClients();
     const existing = existingId ? getClientById(existingId) : null;
 
     const name = prompt("Client name:", existing?.name || "");
     if (!name) return;
 
-    const planStartUS = prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStart) : "12/19/2025") || "";
-    const planEndUS   = prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEnd) : "12/18/2026") || "";
+    const planStartRaw = prompt("Plan Start (MM/DD/YYYY):", existing ? "" : "12/19/2025") || "";
+    const planEndRaw   = prompt("Plan End (MM/DD/YYYY):", existing ? "" : "12/18/2026") || "";
+    const planStart = normalizeToISO(planStartRaw);
+    const planEnd   = normalizeToISO(planEndRaw);
 
-    const planStart = normalizeUSDateToISO(planStartUS);
-    const planEnd   = normalizeUSDateToISO(planEndUS);
-
-    if (!planStart || !planEnd) {
-      alert("Plan dates must be MM/DD/YYYY (ex: 12/19/2025).");
-      return;
-    }
-
-    const workLocation = prompt("Default Work Location:", existing?.workLocation || "") || "";
-
-    const pin = prompt("Coach PIN (used ONLY to unlock editing after coach signs):", existing?.pin || "") || "";
-    if (pin && pin.length < 4) {
-      alert("Coach PIN should be at least 4 characters.");
-      return;
-    }
+    const workLocation = prompt("Work Location:", existing?.workLocation || "") || "";
 
     const tasksRaw = prompt(
-      "Paste TASKS (one per line). Leave blank to use defaults:",
+      "Paste tasks (one per line). Leave blank to use defaults:",
       (existing?.tasks || DEFAULT_TASKS).join("\n")
     ) || "";
     const tasks = tasksRaw.split("\n").map(s => s.trim()).filter(Boolean);
     const finalTasks = tasks.length ? tasks : DEFAULT_TASKS.slice();
 
     const goalsRaw = prompt(
-      "Paste GOALS (one per line). Leave blank to use defaults:",
+      "Paste goals (one per line). Leave blank to use defaults:",
       (existing?.goals || DEFAULT_GOALS).join("\n")
     ) || "";
     const goals = goalsRaw.split("\n").map(s => s.trim()).filter(Boolean);
@@ -872,12 +1099,11 @@
 
     if (existingId) {
       const idx = clients.findIndex(c => c.id === existingId);
-      if (idx >= 0) {
-        clients[idx] = { ...clients[idx], name, planStart, planEnd, workLocation, pin, tasks: finalTasks, goals: finalGoals };
-      }
+      if (idx >= 0) clients[idx] = { ...clients[idx], name, planStart, planEnd, workLocation, tasks: finalTasks, goals: finalGoals };
       saveClients(clients);
       renderClientSelect(existingId);
       onClientChange();
+      autosave();
       return;
     }
 
@@ -887,46 +1113,61 @@
       planStart,
       planEnd,
       workLocation,
-      pin,
       tasks: finalTasks,
       goals: finalGoals
     };
-
     clients.push(newClient);
     saveClients(clients);
     renderClientSelect(newClient.id);
-
-    saveLockBundle(newClient.id, defaultLockBundle());
-    logAudit(newClient.id, "CLIENT_CREATED", name);
-
     onClientChange();
+    autosave();
   }
 
-  /***********************
-   * On client change
-   ***********************/
-  function onClientChange() {
+  // ---- Template edit buttons (tasks/goals) ----
+  function editTemplateTasks() {
     const cid = currentClientId();
     const client = getClientById(cid);
-    if (!client) {
-      setSaveState("No client selected");
-      return;
-    }
+    if (!client) return;
 
-    lockPlanDisplay(client);
+    const current = (client.tasks || DEFAULT_TASKS).join("\n");
+    const raw = prompt("Edit tasks template (one per line):", current);
+    if (raw == null) return;
 
-    if (!getLockBundle(cid)) saveLockBundle(cid, defaultLockBundle());
+    const tasks = raw.split("\n").map(s=>s.trim()).filter(Boolean);
+    client.tasks = tasks.length ? tasks : DEFAULT_TASKS.slice();
 
-    const loaded = loadSavedEntry(cid);
-    if (!loaded) loadClientTemplate(client);
+    const clients = getClients();
+    const idx = clients.findIndex(c => c.id === cid);
+    if (idx >= 0) clients[idx] = client;
+    saveClients(clients);
 
-    applyLockUI();
-    setSaveState(loaded ? "Loaded saved entry" : "Loaded template");
+    // apply template to current sheet too
+    setTasks(client.tasks.map(t => ({ title:t, support:"", note:"" })));
+    autosave();
   }
 
-  /***********************
-   * Export / Import
-   ***********************/
+  function editTemplateGoals() {
+    const cid = currentClientId();
+    const client = getClientById(cid);
+    if (!client) return;
+
+    const current = (client.goals || DEFAULT_GOALS).join("\n");
+    const raw = prompt("Edit goals template (one per line):", current);
+    if (raw == null) return;
+
+    const goals = raw.split("\n").map(s=>s.trim()).filter(Boolean);
+    client.goals = goals.length ? goals : DEFAULT_GOALS.slice();
+
+    const clients = getClients();
+    const idx = clients.findIndex(c => c.id === cid);
+    if (idx >= 0) clients[idx] = client;
+    saveClients(clients);
+
+    setGoals(client.goals.map(g => ({ title:g, prompts:[{code:"",count:1}], note:"" })));
+    autosave();
+  }
+
+  // ---- Export/import ----
   function download(filename, text) {
     const blob = new Blob([text], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -937,405 +1178,196 @@
     URL.revokeObjectURL(url);
   }
 
-  /***********************
-   * Signature pad (Pointer Events, mobile-safe)
-   ***********************/
-  function setupSignaturePad(canvasId, shouldAllowDrawFn, onEnd) {
-    const canvas = document.getElementById(canvasId);
-    const ctx = canvas.getContext("2d");
-
-    let drawing = false;
-    let last = null;
-
-    function sizeCanvasToDisplay() {
-      const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const existing = canvas.toDataURL("image/png");
-
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.strokeStyle = "#111";
-
-      if (existing && existing !== "data:,") {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        };
-        img.src = existing;
-      }
+  function promptImport() {
+    const raw = prompt("Paste exported JSON:");
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      apply(data);
+      autosave();
+      setSaveState("Imported", "good");
+    } catch {
+      alert("Invalid JSON. Try not to paste chaos next time.");
     }
-
-    setTimeout(sizeCanvasToDisplay, 0);
-    window.addEventListener("resize", () => setTimeout(sizeCanvasToDisplay, 0));
-    window.addEventListener("orientationchange", () => setTimeout(sizeCanvasToDisplay, 50));
-
-    function getPointFromEvent(e) {
-      const rect = canvas.getBoundingClientRect();
-      let clientX, clientY;
-      if (e.touches && e.touches[0]) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-
-    function begin(e) {
-      if (!shouldAllowDrawFn()) return;
-      sizeCanvasToDisplay();
-      e.preventDefault();
-      drawing = true;
-      last = getPointFromEvent(e);
-    }
-    function draw(e) {
-      if (!shouldAllowDrawFn()) return;
-      if (!drawing) return;
-      e.preventDefault();
-      const p = getPointFromEvent(e);
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      last = p;
-    }
-    function finish(e) {
-      if (!shouldAllowDrawFn()) return;
-      if (!drawing) return;
-      e.preventDefault();
-      drawing = false;
-      last = null;
-      onEnd?.();
-    }
-
-    if (window.PointerEvent) {
-      canvas.addEventListener("pointerdown", (e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        canvas.setPointerCapture(e.pointerId);
-        begin(e);
-      });
-      canvas.addEventListener("pointermove", draw);
-      canvas.addEventListener("pointerup", finish);
-      canvas.addEventListener("pointercancel", finish);
-      canvas.addEventListener("pointerleave", finish);
-    } else {
-      canvas.addEventListener("mousedown", begin);
-      canvas.addEventListener("mousemove", draw);
-      window.addEventListener("mouseup", finish);
-
-      canvas.addEventListener("touchstart", begin, { passive: false });
-      canvas.addEventListener("touchmove", draw, { passive: false });
-      canvas.addEventListener("touchend", finish, { passive: false });
-      canvas.addEventListener("touchcancel", finish, { passive: false });
-    }
-
-    return {
-      clear() {
-        const rect = canvas.getBoundingClientRect();
-        ctx.clearRect(0, 0, rect.width, rect.height);
-      },
-      toDataURL() { return canvas.toDataURL("image/png"); },
-      fromDataURL(dataUrl) {
-        if (!dataUrl) return;
-        sizeCanvasToDisplay();
-        const img = new Image();
-        img.onload = () => {
-          const rect = canvas.getBoundingClientRect();
-          ctx.clearRect(0, 0, rect.width, rect.height);
-          ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        };
-        img.src = dataUrl;
-      }
-    };
   }
 
-  let sigPads = null;
+  // ---- Buttons + wiring ----
+  ["workLocation","entryDate","additionalNotes","clientPrinted","coachPrinted","specPrinted","unlockName"].forEach(id => {
+    el(id).addEventListener("input", autosave);
+    el(id).addEventListener("change", autosave);
+  });
 
-  function applySigsToUI(sigs) {
-    const s = sigs || defaultLockBundle().sigs;
+  el("timeIn").addEventListener("input", () => { recalcTotalTime(); autosave(); });
+  el("timeOut").addEventListener("input", () => { recalcTotalTime(); autosave(); });
 
-    el("clientSigName").value = s.client?.name || "";
-    el("clientSigAt").textContent = s.client?.at ? new Date(s.client.at).toLocaleString() : "—";
-    if (sigPads?.client) sigPads.client.fromDataURL(s.client?.dataUrl || "");
+  el("clientSelect").addEventListener("change", () => { onClientChange(); });
 
-    el("coachSigName").value = s.coach?.name || "";
-    el("coachSigAt").textContent = s.coach?.at ? new Date(s.coach.at).toLocaleString() : "—";
-    if (sigPads?.coach) sigPads.coach.fromDataURL(s.coach?.dataUrl || "");
+  el("addTask").addEventListener("click", () => { addTaskRow(el("tasksBody"), { title:"", support:"", note:"" }); autosave(); });
+  el("addGoal").addEventListener("click", () => { addGoalRow(el("goalsBody"), { title:"", prompts:[{code:"",count:1}], note:"" }); autosave(); });
 
-    el("specSigName").value = s.spec?.name || "";
-    el("specSigAt").textContent = s.spec?.at ? new Date(s.spec.at).toLocaleString() : "—";
-    if (sigPads?.spec) sigPads.spec.fromDataURL(s.spec?.dataUrl || "");
-  }
-
-  function ensureLockBundle(cid) {
-    let b = getLockBundle(cid);
-    if (!b) {
-      b = defaultLockBundle();
-      saveLockBundle(cid, b);
-    }
-    return b;
-  }
-
-  function lockNow() {
+  el("addClient").addEventListener("click", () => addOrUpdateClient(null));
+  el("editClient").addEventListener("click", () => {
     const cid = currentClientId();
     if (!cid) return;
+    addOrUpdateClient(cid);
+  });
 
-    const b = ensureLockBundle(cid);
-    if (b.state === LOCK_STATES.FINAL) {
-      alert("Already FINAL. Unlock requires Coach PIN.");
-      return;
-    }
-    b.state = LOCK_STATES.LOCKED;
-    saveLockBundle(cid, b);
-    logAudit(cid, "LOCKED_MANUAL");
-    applyLockUI();
-    setSaveState("Locked");
-  }
+  el("editTasks").addEventListener("click", () => {
+    if (isLocked(formState.lockState)) return alert("Locked. Use PIN unlock to edit.");
+    editTemplateTasks();
+  });
+  el("editGoals").addEventListener("click", () => {
+    if (isLocked(formState.lockState)) return alert("Locked. Use PIN unlock to edit.");
+    editTemplateGoals();
+  });
 
-  function unlockForEdit() {
-    const cid = currentClientId();
-    if (!cid) return;
-
-    const client = getClientById(cid);
-    const pinSet = client?.pin || "";
-    if (!pinSet) {
-      alert("No Coach PIN set for this client. Edit the client and set one.");
-      return;
-    }
-
-    const entered = prompt("Enter Coach PIN to unlock editing:");
-    if (entered !== pinSet) {
-      alert("Wrong PIN.");
-      return;
-    }
-
-    const b = ensureLockBundle(cid);
-    b.state = LOCK_STATES.DRAFT;
-    b.sigs = defaultLockBundle().sigs;
-    saveLockBundle(cid, b);
-    logAudit(cid, "UNLOCKED_FOR_EDIT", "Signatures cleared");
-    applyLockUI();
-    setSaveState("Unlocked (signatures cleared)");
-  }
-
-  function signClient() {
-    const cid = currentClientId();
-    if (!cid) return;
-
-    const b = ensureLockBundle(cid);
-    const name = el("clientSigName").value.trim();
-    if (!name) { alert("Client printed name is required."); return; }
-
-    const dataUrl = sigPads.client.toDataURL();
-    if (!dataUrl || dataUrl === "data:,") { alert("Client signature is blank."); return; }
-
-    b.sigs.client = { name, at: new Date().toISOString(), dataUrl };
-    saveLockBundle(cid, b);
-    logAudit(cid, "CLIENT_SIGNED", name);
-    applyLockUI();
-    setSaveState("Client signed");
-  }
-
-  function signCoach() {
-    const cid = currentClientId();
-    if (!cid) return;
-
-    const b = ensureLockBundle(cid);
-    const name = el("coachSigName").value.trim();
-    if (!name) { alert("Coach printed name is required."); return; }
-
-    const dataUrl = sigPads.coach.toDataURL();
-    if (!dataUrl || dataUrl === "data:,") { alert("Coach signature is blank."); return; }
-
-    b.sigs.coach = { name, at: new Date().toISOString(), dataUrl };
-    b.state = LOCK_STATES.LOCKED;
-    saveLockBundle(cid, b);
-    logAudit(cid, "COACH_SIGNED_LOCKED", name);
-    applyLockUI();
-    setSaveState("Coach signed (locked)");
-  }
-
-  function signSpec() {
-    const cid = currentClientId();
-    if (!cid) return;
-
-    const b = ensureLockBundle(cid);
-    const name = el("specSigName").value.trim();
-    if (!name) { alert("Specialist printed name is required."); return; }
-
-    const dataUrl = sigPads.spec.toDataURL();
-    if (!dataUrl || dataUrl === "data:,") { alert("Specialist signature is blank."); return; }
-
-    b.sigs.spec = { name, at: new Date().toISOString(), dataUrl };
-    b.state = LOCK_STATES.FINAL;
-    saveLockBundle(cid, b);
-    logAudit(cid, "SPECIALIST_SIGNED_FINAL", name);
-    applyLockUI();
-    setSaveState("Finalized");
-  }
-
-  function loadDemoClients() {
+  el("loadDemo").addEventListener("click", () => {
     const demo = [
       {
-        id: "client_demo_1",
+        id: "client_1",
         name: "Test Client A",
         planStart: "2025-12-19",
         planEnd: "2026-12-18",
         workLocation: "Albertsons",
-        pin: "1234",
         tasks: DEFAULT_TASKS,
         goals: DEFAULT_GOALS
       },
       {
-        id: "client_demo_2",
+        id: "client_2",
         name: "Test Client B",
         planStart: "2025-10-01",
         planEnd: "2026-09-30",
         workLocation: "Target",
-        pin: "4321",
         tasks: DEFAULT_TASKS,
         goals: DEFAULT_GOALS
       }
     ];
     saveClients(demo);
-    demo.forEach(c => saveLockBundle(c.id, defaultLockBundle()));
-    renderClientSelect(demo[0].id);
+    renderClientSelect("client_1");
     onClientChange();
     autosave();
-  }
+  });
 
-  function wipeAll() {
-    if (!confirm("Wipe ALL locally saved data on this device (clients + entries + locks)?")) return;
+  el("saveNow").addEventListener("click", () => {
+    if (!blockIfInvalid("Save", { forAction:"save" })) return;
+    const cid = currentClientId();
+    if (!cid) return;
+    localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+    setSaveState("Saved", "good");
+  });
+
+  el("exportJson").addEventListener("click", () => {
+    if (!blockIfInvalid("Export", { forAction:"save" })) return;
+    const data = snapshot();
+    const safeName = (data.clientName || "client").replace(/[^a-z0-9]+/gi, "_").slice(0,40);
+    const date = data.entryDate || todayISO();
+    download(`TA_${safeName}_${date}.json`, JSON.stringify(data, null, 2));
+  });
+
+  el("importJson").addEventListener("click", promptImport);
+  el("printPage").addEventListener("click", () => window.print());
+
+  el("wipeAll").addEventListener("click", () => {
+    if (!confirm("Wipe ALL locally saved data on this device (clients + entries)?")) return;
     localStorage.removeItem(CLIENTS_KEY);
     Object.keys(localStorage).forEach(k => {
-      if (k.startsWith(ENTRY_KEY_BASE + ":")) localStorage.removeItem(k);
-      if (k.startsWith(LOCK_KEY_BASE + ":")) localStorage.removeItem(k);
+      if (k.startsWith(STORAGE_KEY_BASE + ":")) localStorage.removeItem(k);
     });
     location.reload();
-  }
+  });
 
-  function wireFormEvents() {
-    ["workLocation","entryDate","additionalNotes"].forEach(id => {
-      el(id).addEventListener("input", autosave);
-      el(id).addEventListener("change", autosave);
-    });
+  // ---- Signature pads hookup ----
+  const sigPads = {
+    client: createSigPad("clientCanvas", () => formState.sigs.client.dataUrl, (d)=>{ formState.sigs.client.dataUrl = d; }),
+    coach:  createSigPad("coachCanvas",  () => formState.sigs.coach.dataUrl,  (d)=>{ formState.sigs.coach.dataUrl  = d; }),
+    spec:   createSigPad("specCanvas",   () => formState.sigs.spec.dataUrl,   (d)=>{ formState.sigs.spec.dataUrl   = d; })
+  };
 
-    el("timeIn").addEventListener("input", () => { recalcTotalTime(); autosave(); });
-    el("timeOut").addEventListener("input", () => { recalcTotalTime(); autosave(); });
+  el("clientClear").addEventListener("click", () => { formState.sigs.client.dataUrl=""; formState.sigs.client.signedAt=""; sigPads.client.clear(); el("clientSignedAt").textContent="—"; setSigStatus("client", false); autosave(); });
+  el("coachClear").addEventListener("click", () => { formState.sigs.coach.dataUrl="";  formState.sigs.coach.signedAt="";  sigPads.coach.clear();  el("coachSignedAt").textContent="—";  setSigStatus("coach", false); autosave(); });
+  el("specClear").addEventListener("click",  () => { formState.sigs.spec.dataUrl="";   formState.sigs.spec.signedAt="";   sigPads.spec.clear();   el("specSignedAt").textContent="—";   setSigStatus("spec", false); autosave(); });
 
-    el("clientSelect").addEventListener("change", () => { onClientChange(); });
+  el("clientSign").addEventListener("click", () => {
+    if (formState.lockState === "final") return alert("FINAL locked. No changes allowed.");
+    if (!blockIfInvalid("Client Sign", { forAction:"clientSign" })) return;
 
-    el("addTask").addEventListener("click", () => { addTaskRow(el("tasksBody"), { title:"", support:"", note:"" }); autosave(); });
-    el("addGoal").addEventListener("click", () => { addGoalRow(el("goalsBody"), { title:"", supports:[], note:"" }); autosave(); });
+    formState.sigs.client.signedAt = nowStamp();
+    el("clientSignedAt").textContent = formState.sigs.client.signedAt;
+    setSigStatus("client", true);
 
-    el("addClient").addEventListener("click", () => addOrUpdateClient(null));
-    el("editClient").addEventListener("click", () => {
-      const cid = currentClientId();
-      if (!cid) return;
-      addOrUpdateClient(cid);
-    });
-    el("loadDemo").addEventListener("click", loadDemoClients);
+    // Lock editing after client signs
+    formState.lockState = "locked";
+    updateLockUI();
+    autosave();
+  });
 
-    el("saveNow").addEventListener("click", () => {
-      const cid = currentClientId();
-      if (!cid) return;
-      const b = getLockBundle(cid) || defaultLockBundle();
-      if (isLockedState(b.state)) {
-        setSaveState("Locked (no save)");
-        return;
-      }
-      localStorage.setItem(entryKeyFor(cid), JSON.stringify(snapshotEntry()));
-      setSaveState("Saved");
-    });
+  el("coachSign").addEventListener("click", () => {
+    if (formState.lockState === "final") return alert("FINAL locked. No changes allowed.");
+    if (!blockIfInvalid("Coach Sign", { forAction:"coachSign" })) return;
 
-    el("exportJson").addEventListener("click", () => {
-      const cid = currentClientId();
-      if (!cid) return;
-      const entry = snapshotEntry();
-      const lock = getLockBundle(cid) || defaultLockBundle();
-      const payload = { entry, lock };
-      const safeName = (entry.clientName || "client").replace(/[^a-z0-9]+/gi, "_").slice(0,40);
-      const date = entry.entryDate || new Date().toISOString().slice(0,10);
-      download(`TA_${safeName}_${date}.json`, JSON.stringify(payload, null, 2));
-    });
+    formState.sigs.coach.signedAt = nowStamp();
+    el("coachSignedAt").textContent = formState.sigs.coach.signedAt;
+    setSigStatus("coach", true);
 
-    el("importJson").addEventListener("click", () => {
-      const raw = prompt("Paste exported JSON (entry+lock):");
-      if (!raw) return;
-      try {
-        const payload = JSON.parse(raw);
-        const cid = currentClientId();
-        if (!cid) return;
+    autosave();
+  });
 
-        const b = getLockBundle(cid) || defaultLockBundle();
-        if (isLockedState(b.state)) {
-          alert("This entry is locked. Unlock for edit before importing.");
-          return;
-        }
+  el("specFinal").addEventListener("click", () => {
+    if (formState.lockState === "final") return alert("Already FINAL locked.");
+    if (!blockIfInvalid("Specialist Final Sign-Off", { forAction:"specFinal" })) return;
 
-        if (payload.entry) applyEntry(payload.entry);
-        if (payload.lock) {
-          const lb = ensureLockBundle(cid);
-          lb.state = LOCK_STATES.DRAFT;
-          lb.sigs = defaultLockBundle().sigs;
-          saveLockBundle(cid, lb);
-          logAudit(cid, "IMPORT_LOCK_IGNORED", "Set to DRAFT, cleared sigs");
-        }
-        autosave();
-        applyLockUI();
-        setSaveState("Imported");
-      } catch {
-        alert("Invalid JSON.");
-      }
-    });
+    formState.sigs.spec.signedAt = nowStamp();
+    el("specSignedAt").textContent = formState.sigs.spec.signedAt;
+    setSigStatus("spec", true);
 
-    el("printPage").addEventListener("click", () => window.print());
-    el("wipeAll").addEventListener("click", wipeAll);
+    formState.lockState = "final";
+    updateLockUI();
+    autosave();
+  });
 
-    el("lockNow").addEventListener("click", lockNow);
-    el("unlockEdit").addEventListener("click", unlockForEdit);
+  // ---- Unlock workflow ----
+  el("unlockBtn").addEventListener("click", () => {
+    if (formState.lockState === "final") return alert("FINAL locked. No unlock allowed.");
+    if (formState.lockState !== "locked") return alert("Not locked. Nothing to unlock.");
 
-    el("clientSign").addEventListener("click", signClient);
-    el("coachSign").addEventListener("click", signCoach);
-    el("specSign").addEventListener("click", signSpec);
+    const pin = el("unlockPin").value || "";
+    if (pin !== PIN_DEFAULT) return alert("Wrong PIN.");
 
-    el("clientClear").addEventListener("click", () => { sigPads.client.clear(); autosave(); });
-    el("coachClear").addEventListener("click", () => { sigPads.coach.clear(); autosave(); });
-    el("specClear").addEventListener("click", () => { sigPads.spec.clear(); autosave(); });
-  }
+    if (!el("unlockName").value.trim()) return alert("Enter Specialist Name for unlock log.");
 
+    // unlocking clears signatures (per your rule)
+    clearAllSignatures();
+
+    formState.lockState = "unlocked";
+    el("unlockAt").value = nowStamp();
+    updateLockUI();
+    autosave();
+  });
+
+  el("relockBtn").addEventListener("click", () => {
+    if (formState.lockState === "final") return alert("FINAL locked.");
+    if (formState.lockState !== "unlocked") return alert("Already locked.");
+
+    // Re-lock after edits (still no signatures since unlock cleared them)
+    formState.lockState = "locked";
+    updateLockUI();
+    autosave();
+  });
+
+  // ---- Init ----
   (function init() {
-    sigPads = {
-      client: setupSignaturePad("clientSigPad", () => true, () => {}),
-      coach:  setupSignaturePad("coachSigPad",  () => true, () => {}),
-      spec:   setupSignaturePad("specSigPad",   () => true, () => {})
-    };
-
-    wireFormEvents();
-
     renderClientSelect();
     const clients = getClients();
     if (clients.length) {
       renderClientSelect(clients[0].id);
-      if (!getLockBundle(clients[0].id)) saveLockBundle(clients[0].id, defaultLockBundle());
       onClientChange();
-      setSaveState("Ready");
+      setSaveState("Ready", "good");
     } else {
-      el("planStartDisplay").value = "";
-      el("planEndDisplay").value = "";
-      setTasks([]);
-      setGoals([]);
-      setLockBadge(LOCK_STATES.DRAFT);
-      setSaveState("No clients loaded (Add Client or Load Demo Clients)");
+      setPlanDatesLocked("", "");
+      setSaveState("No clients loaded (use Add Client or Load Demo Clients)", "bad");
     }
+
+    updateLockUI();
   })();
 </script>
 </body>
