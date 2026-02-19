@@ -356,9 +356,9 @@
 <script>
 /* BUILD_ID: 2026-02-19__supabase_v1 */
 
-const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
+const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.sb.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
@@ -1367,7 +1367,7 @@ async function submitToSupabase(){
       spec_signature_path: specSigPath || null
     };
 
-    const { error } = await supabase.from("ta_records").insert([payload]);
+    const { error } = await sb.from("ta_records").insert([payload]);
 
     if(error) throw new Error(error.message);
 
@@ -1380,7 +1380,7 @@ async function submitToSupabase(){
   }
 }
 
-E.submitSupabase.addEventListener("click", submitToSupabase);
+E.submitsb.addEventListener("click", submitToSupabase);
 
 /* ---------- AUTH ---------- */
 function showAuthError(msg){
@@ -1394,7 +1394,7 @@ function clearAuthError(){
 }
 
 async function refreshSession(){
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   currentUser = data?.session?.user || null;
 
   if(currentUser){
@@ -1426,7 +1426,7 @@ E.loginBtn.addEventListener("click", async ()=>{
   E.authStatus.textContent = "Signing in…";
   E.authStatus.className = "pill warn";
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   if(error){
     E.authStatus.textContent = "Not signed in";
     E.authStatus.className = "pill bad";
@@ -1436,11 +1436,11 @@ E.loginBtn.addEventListener("click", async ()=>{
 });
 
 E.logoutBtn.addEventListener("click", async ()=>{
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
   await refreshSession();
 });
 
-supabase.auth.onAuthStateChange(async () => {
+sb.auth.onAuthStateChange(async () => {
   await refreshSession();
 });
 
@@ -1454,3 +1454,4 @@ supabase.auth.onAuthStateChange(async () => {
 </script>
 </body>
 </html>
+
