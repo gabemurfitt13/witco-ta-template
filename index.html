@@ -83,6 +83,7 @@
       display:block;
       background: linear-gradient(to bottom, transparent 0 78%, rgba(0,0,0,.08) 78% 79%, transparent 79% 100%);
     }
+    .sigDebug { font-size: 11px; color:#666; margin-top:6px; }
 
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
@@ -103,7 +104,7 @@
   <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-18__PIN0413__sigcommit_v2</span>
+      <span class="build">BUILD_ID: 2026-02-18__PIN0413__sigpad_touchfix_v1</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
     </div>
@@ -201,6 +202,7 @@
       <div class="sigCard">
         <div class="sigTop"><b>Client</b><span class="pill bad" id="clientSigStatus">Not signed</span></div>
         <canvas class="sigcanvas" id="clientCanvas"></canvas>
+        <div class="sigDebug" id="clientDebug">strokes: 0 · data: 0</div>
         <label style="margin-top:8px;">Printed name</label>
         <input id="clientPrinted" />
         <div class="sigMeta">Signed at: <span id="clientSignedAt">—</span></div>
@@ -213,6 +215,7 @@
       <div class="sigCard">
         <div class="sigTop"><b>Coach</b><span class="pill bad" id="coachSigStatus">Not signed</span></div>
         <canvas class="sigcanvas" id="coachCanvas"></canvas>
+        <div class="sigDebug" id="coachDebug">strokes: 0 · data: 0</div>
         <label style="margin-top:8px;">Printed name</label>
         <input id="coachPrinted" />
         <div class="sigMeta">Signed at: <span id="coachSignedAt">—</span></div>
@@ -225,6 +228,7 @@
       <div class="sigCard">
         <div class="sigTop"><b>Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
         <canvas class="sigcanvas" id="specCanvas"></canvas>
+        <div class="sigDebug" id="specDebug">strokes: 0 · data: 0</div>
         <label style="margin-top:8px;">Printed name</label>
         <input id="specPrinted" />
         <div class="sigMeta">Signed at: <span id="specSignedAt">—</span></div>
@@ -271,7 +275,7 @@
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-18__PIN0413__sigcommit_v2 */
+/* BUILD_ID: 2026-02-18__PIN0413__sigpad_touchfix_v1 */
 
 const CLIENTS_KEY = "witco_clients_v3__PIN0413";
 const STORAGE_KEY_BASE = "witco_supported_employment_form__PIN0413";
@@ -290,7 +294,6 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-
 const el = (id) => document.getElementById(id);
 
 const E = {
@@ -335,6 +338,10 @@ const E = {
   coachSign: el("coachSign"),
   specFinal: el("specFinal"),
 
+  clientDebug: el("clientDebug"),
+  coachDebug: el("coachDebug"),
+  specDebug: el("specDebug"),
+
   unlockName: el("unlockName"),
   unlockPin: el("unlockPin"),
   unlockAt: el("unlockAt"),
@@ -354,9 +361,9 @@ const E = {
 const formState = {
   lockState: "unlocked", // unlocked | locked | final
   sigs: {
-    client: { printed:"", signedAt:"", dataUrl:"" },
-    coach:  { printed:"", signedAt:"", dataUrl:"" },
-    spec:   { printed:"", signedAt:"", dataUrl:"" }
+    client: { printed:"", signedAt:"", dataUrl:"", strokes:0 },
+    coach:  { printed:"", signedAt:"", dataUrl:"", strokes:0 },
+    spec:   { printed:"", signedAt:"", dataUrl:"", strokes:0 }
   }
 };
 
@@ -573,7 +580,7 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
-// ---- SIGNATURE PAD (with commit) ----
+// ---------- SIGNATURE PAD (pointer + touch + mouse) ----------
 function sizeCanvasToCSS(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -583,14 +590,21 @@ function sizeCanvasToCSS(canvas) {
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
-function createSigPad(canvas, getData, setData) {
+function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl) {
   const ctx = canvas.getContext("2d");
   let drawing = false;
   let last = null;
 
+  function updateDebug() {
+    const strokes = getStrokes();
+    const len = (getData() || "").length;
+    if (debugEl) debugEl.textContent = `strokes: ${strokes} · data: ${len}`;
+  }
+
   function redraw() {
     sizeCanvasToCSS(canvas);
     const dataUrl = getData();
+    updateDebug();
     if (!dataUrl) return;
     const img = new Image();
     img.onload = () => {
@@ -606,35 +620,43 @@ function createSigPad(canvas, getData, setData) {
     const r = canvas.getBoundingClientRect();
     ctx.clearRect(0, 0, r.width, r.height);
     setData("");
+    setStrokes(0);
+    updateDebug();
   }
 
   function commit() {
-    // Force-save whatever is currently drawn on the canvas (mobile sanity)
     const r = canvas.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    const tmp = document.createElement("canvas");
-    tmp.width = Math.max(1, Math.round(r.width));
-    tmp.height = Math.max(1, Math.round(r.height));
-    tmp.getContext("2d").drawImage(canvas, 0, 0, tmp.width, tmp.height);
-    setData(tmp.toDataURL("image/png"));
+    // If nothing drawn, keep empty
+    if (getStrokes() <= 0) { setData(""); updateDebug(); return; }
+
+    // Use the actual backing store for best reliability
+    try {
+      const url = canvas.toDataURL("image/png");
+      setData(url);
+    } catch {
+      // Fallback: copy to tmp
+      const tmp = document.createElement("canvas");
+      tmp.width = Math.max(1, Math.round(r.width));
+      tmp.height = Math.max(1, Math.round(r.height));
+      tmp.getContext("2d").drawImage(canvas, 0, 0, tmp.width, tmp.height);
+      setData(tmp.toDataURL("image/png"));
+    }
+    updateDebug();
   }
 
-  function pos(e) {
+  function posFromClientXY(clientX, clientY) {
     const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  canvas.addEventListener("pointerdown", (e) => {
+  function startAt(p) {
     sizeCanvasToCSS(canvas);
     drawing = true;
-    last = pos(e);
-    canvas.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-  });
-
-  canvas.addEventListener("pointermove", (e) => {
+    last = p;
+  }
+  function moveTo(p) {
     if (!drawing) return;
-    const p = pos(e);
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#111";
@@ -643,32 +665,61 @@ function createSigPad(canvas, getData, setData) {
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     last = p;
-    e.preventDefault();
-  });
-
-  function end(e) {
+    setStrokes(getStrokes() + 1);
+    updateDebug();
+  }
+  function end() {
     if (!drawing) return;
     drawing = false;
     last = null;
     commit();
     autosave();
-    e.preventDefault();
   }
 
-  canvas.addEventListener("pointerup", end);
-  canvas.addEventListener("pointercancel", end);
+  // PointerEvents if available
+  if (window.PointerEvent) {
+    canvas.addEventListener("pointerdown", (e) => {
+      startAt(posFromClientXY(e.clientX, e.clientY));
+      canvas.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      moveTo(posFromClientXY(e.clientX, e.clientY));
+      e.preventDefault();
+    });
+
+    canvas.addEventListener("pointerup", (e) => { end(); e.preventDefault(); });
+    canvas.addEventListener("pointercancel", (e) => { end(); e.preventDefault(); });
+  } else {
+    // Touch fallback
+    canvas.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      startAt(posFromClientXY(t.clientX, t.clientY));
+      e.preventDefault();
+    }, { passive:false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      moveTo(posFromClientXY(t.clientX, t.clientY));
+      e.preventDefault();
+    }, { passive:false });
+
+    canvas.addEventListener("touchend", (e) => { end(); e.preventDefault(); }, { passive:false });
+
+    // Mouse fallback
+    canvas.addEventListener("mousedown", (e) => { startAt(posFromClientXY(e.clientX,e.clientY)); e.preventDefault(); });
+    window.addEventListener("mousemove", (e) => { moveTo(posFromClientXY(e.clientX,e.clientY)); });
+    window.addEventListener("mouseup", () => end());
+  }
 
   setTimeout(() => { sizeCanvasToCSS(canvas); redraw(); }, 0);
   window.addEventListener("resize", () => { sizeCanvasToCSS(canvas); redraw(); });
 
-  return { clear, redraw, commit };
+  return { clear, redraw, commit, updateDebug };
 }
-
-const sigPads = {
-  client: createSigPad(E.clientCanvas, ()=>formState.sigs.client.dataUrl, d=>formState.sigs.client.dataUrl=d),
-  coach:  createSigPad(E.coachCanvas,  ()=>formState.sigs.coach.dataUrl,  d=>formState.sigs.coach.dataUrl=d),
-  spec:   createSigPad(E.specCanvas,   ()=>formState.sigs.spec.dataUrl,   d=>formState.sigs.spec.dataUrl=d)
-};
 
 function nowStamp(){ return new Date().toLocaleString(); }
 
@@ -699,13 +750,18 @@ function syncSigBadges(){
     p.classList.toggle("good", ok);
     p.classList.toggle("bad", !ok);
   });
+
+  // keep debug text fresh
+  sigPads?.client?.updateDebug?.();
+  sigPads?.coach?.updateDebug?.();
+  sigPads?.spec?.updateDebug?.();
 }
 
 function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-18__PIN0413__sigcommit_v2",
+    build:"2026-02-18__PIN0413__sigpad_touchfix_v1",
     clientId:cid,
     clientName:c?.name||"",
     planStartISO:c?.planStartISO||"",
@@ -744,7 +800,9 @@ function apply(data){
   E.unlockName.value=data.unlock?.name||"";
   E.unlockAt.value=data.unlock?.at||"";
 
-  formState.sigs=data.sigs || formState.sigs;
+  // restore sigs + strokes
+  formState.sigs = data.sigs || formState.sigs;
+
   E.clientPrinted.value=formState.sigs.client.printed||"";
   E.coachPrinted.value=formState.sigs.coach.printed||"";
   E.specPrinted.value=formState.sigs.spec.printed||"";
@@ -769,7 +827,41 @@ function autosave(){
   },150);
 }
 
-// ---- client handling ----
+// ---------- sig pads init ----------
+let sigPads = null;
+function initSigPads() {
+  sigPads = {
+    client: createSigPad(
+      E.clientCanvas,
+      ()=>formState.sigs.client.dataUrl,
+      (d)=>formState.sigs.client.dataUrl=d,
+      ()=>formState.sigs.client.strokes,
+      (n)=>formState.sigs.client.strokes=n,
+      E.clientDebug
+    ),
+    coach: createSigPad(
+      E.coachCanvas,
+      ()=>formState.sigs.coach.dataUrl,
+      (d)=>formState.sigs.coach.dataUrl=d,
+      ()=>formState.sigs.coach.strokes,
+      (n)=>formState.sigs.coach.strokes=n,
+      E.coachDebug
+    ),
+    spec: createSigPad(
+      E.specCanvas,
+      ()=>formState.sigs.spec.dataUrl,
+      (d)=>formState.sigs.spec.dataUrl=d,
+      ()=>formState.sigs.spec.strokes,
+      (n)=>formState.sigs.spec.strokes=n,
+      E.specDebug
+    )
+  };
+}
+initSigPads();
+
+// ---------- wiring ----------
+function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
+
 function loadClientTemplate(client){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
@@ -783,10 +875,11 @@ function loadClientTemplate(client){
 
   formState.lockState="unlocked";
   formState.sigs = {
-    client:{printed:"",signedAt:"",dataUrl:""},
-    coach:{printed:"",signedAt:"",dataUrl:""},
-    spec:{printed:"",signedAt:"",dataUrl:""}
+    client:{printed:"",signedAt:"",dataUrl:"",strokes:0},
+    coach:{printed:"",signedAt:"",dataUrl:"",strokes:0},
+    spec:{printed:"",signedAt:"",dataUrl:"",strokes:0}
   };
+
   E.clientPrinted.value=""; E.coachPrinted.value=""; E.specPrinted.value="";
   E.clientSignedAt.textContent="—"; E.coachSignedAt.textContent="—"; E.specSignedAt.textContent="—";
   sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
@@ -818,6 +911,7 @@ E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",promp
   el(id).addEventListener("input", autosave);
   el(id).addEventListener("change", autosave);
 });
+
 E.clientPrinted.addEventListener("input", ()=>{ formState.sigs.client.printed=E.clientPrinted.value.trim(); autosave(); });
 E.coachPrinted.addEventListener("input",  ()=>{ formState.sigs.coach.printed=E.coachPrinted.value.trim(); autosave(); });
 E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
@@ -911,7 +1005,7 @@ E.wipeAll.addEventListener("click", ()=>{
   location.reload();
 });
 
-// ---- LOCK / UNLOCK ----
+// ---------- LOCK / UNLOCK ----------
 function lockEdits(){
   formState.lockState = "locked";
   updateLockUI();
@@ -923,7 +1017,6 @@ function unlockEdits(){
   updateLockUI();
   autosave();
 }
-
 E.unlockBtn.addEventListener("click", ()=>{
   const pin = (E.unlockPin.value || "").trim();
   if(pin !== PIN_DEFAULT){
@@ -933,13 +1026,12 @@ E.unlockBtn.addEventListener("click", ()=>{
   unlockEdits();
   setSaveState("Unlocked for edits","good");
 });
-
 E.relockBtn.addEventListener("click", ()=>{
   lockEdits();
   setSaveState("Re-locked","good");
 });
 
-// ---- SIGNING ----
+// ---------- SIGNING ----------
 function finalizeClientSignature(){
   formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
   formState.sigs.client.signedAt = nowStamp();
@@ -965,33 +1057,35 @@ function finalizeSpecSignature(){
   syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
 }
 
-E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); formState.sigs.client.dataUrl=""; syncSigBadges(); autosave(); });
-E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  formState.sigs.coach.dataUrl="";  syncSigBadges(); autosave(); });
-E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   formState.sigs.spec.dataUrl="";   syncSigBadges(); autosave(); });
+E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); autosave(); syncSigBadges(); });
+E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  autosave(); syncSigBadges(); });
+E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   autosave(); syncSigBadges(); });
 
-// ✅ FIX: commit before checking/locking (mobile + GitHub)
 E.clientSign.addEventListener("click", ()=>{
   sigPads.client.commit();
-  if(!formState.sigs.client.dataUrl) return alert("Client signature is blank.");
+  if((formState.sigs.client.strokes||0) <= 0) return alert("Client signature is blank.");
   if(!(E.clientPrinted.value||"").trim()) return alert("Client printed name is required.");
+  if(!formState.sigs.client.dataUrl) return alert("Signature failed to capture. Try signing again.");
   finalizeClientSignature();
 });
 
 E.coachSign.addEventListener("click", ()=>{
   sigPads.coach.commit();
-  if(!formState.sigs.coach.dataUrl) return alert("Coach signature is blank.");
+  if((formState.sigs.coach.strokes||0) <= 0) return alert("Coach signature is blank.");
   if(!(E.coachPrinted.value||"").trim()) return alert("Coach printed name is required.");
+  if(!formState.sigs.coach.dataUrl) return alert("Signature failed to capture. Try signing again.");
   finalizeCoachSignature();
 });
 
 E.specFinal.addEventListener("click", ()=>{
   sigPads.spec.commit();
-  if(!formState.sigs.spec.dataUrl) return alert("Specialist signature is blank.");
+  if((formState.sigs.spec.strokes||0) <= 0) return alert("Specialist signature is blank.");
   if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
+  if(!formState.sigs.spec.dataUrl) return alert("Signature failed to capture. Try signing again.");
   finalizeSpecSignature();
 });
 
-// Init
+// ---------- init ----------
 (function init(){
   renderClientSelect();
   const clients=getClients();
@@ -1005,6 +1099,8 @@ E.specFinal.addEventListener("click", ()=>{
     setSaveState("No clients loaded","bad");
     updateLockUI();
   }
+  syncSigBadges();
+  updateLockUI();
 })();
 </script>
 </body>
