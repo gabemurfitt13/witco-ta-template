@@ -1,110 +1,425 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Supported Employment Data Sheet</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medicaid Supported Employment Data Sheet</title>
 
-<style>
-:root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-body { margin:0; background:#f6f7fb; color:#111; }
-.wrap { max-width:1100px; margin:16px auto; padding:12px; }
-.card { background:#fff; border:1px solid #e6e8f0; border-radius:12px; padding:12px; }
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #f6f7fb; color: #111; }
+    .wrap { max-width: 1100px; margin: 16px auto; padding: 12px; }
+    .card { background: #fff; border: 1px solid #e6e8f0; border-radius: 12px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
 
-label{display:block;font-size:11px;color:#444;margin-bottom:5px}
-input,textarea,select{
-  width:100%; box-sizing:border-box; padding:8px 9px;
-  border:1px solid #d7dbea; border-radius:10px; background:#fff;
-  font-size:13px;
-}
-textarea{min-height:54px;resize:none;overflow:hidden}
+    h1 { margin: 0 0 6px; font-size: 18px; }
+    .sub { color: #555; font-size: 12px; margin-bottom: 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
+    .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
+    .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
 
-.btnbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-button{
-  border:1px solid #d7dbea;background:#111;color:#fff;
-  padding:8px 10px;border-radius:10px;cursor:pointer;font-size:13px;
-}
-button.secondary{background:#fff;color:#111}
-button.ok{background:#157f3b;border-color:#157f3b}
-button.warn{background:#b36b00;border-color:#b36b00}
+    .build {
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:10px;
+      border:2px solid #111;
+      background:#fffbcc;
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.3px;
+    }
 
-.req-bad{
-  border-color:#b42318 !important;
-  box-shadow:0 0 0 2px rgba(180,35,24,.12) !important;
-}
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; }
+    .col-12 { grid-column: span 12; }
+    .col-6  { grid-column: span 6; }
+    .col-4  { grid-column: span 4; }
+    .col-3  { grid-column: span 3; }
+    .col-2  { grid-column: span 2; }
 
-.sigcanvas{
-  width:100%;
-  height:160px;
-  border:1px dashed #cfd6ee;
-  border-radius:10px;
-  touch-action:none;
-  display:block;
-}
-</style>
+    label { display: block; font-size: 11px; color: #444; margin-bottom: 5px; }
+    input, textarea, select {
+      width: 100%; box-sizing: border-box; padding: 8px 9px;
+      border: 1px solid #d7dbea; border-radius: 10px; background: #fff;
+      font-size: 13px;
+    }
+    textarea { min-height: 54px; resize: none; overflow:hidden; }
+    .tight textarea { min-height: 38px; }
+
+    .rowhead { display: flex; align-items: baseline; justify-content: space-between; margin: 12px 0 6px; gap: 10px; }
+    .rowhead h2 { margin: 0; font-size: 14px; }
+    .hint { font-size: 11px; color: #666; line-height: 1.25; }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border-top: 1px solid #eef0f6; padding: 6px 6px; vertical-align: top; }
+    th { text-align: left; font-size: 11px; color: #555; background: #fafbff; }
+
+    .btnbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 1px solid #d7dbea; background: #111; color: #fff;
+      padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 13px;
+    }
+    button.secondary { background: #fff; color: #111; }
+    button.danger { background: #b42318; border-color: #b42318; }
+    button.ok { background:#157f3b; border-color:#157f3b; }
+    button.warn { background:#b36b00; border-color:#b36b00; }
+    .tiny { font-size: 12px; padding: 6px 8px; border-radius: 9px; }
+
+    .req-bad { border-color:#b42318 !important; box-shadow:0 0 0 2px rgba(180,35,24,.12) !important; }
+
+    .supportLines { display:flex; flex-direction:column; gap:6px; }
+    .supportLine { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .supportLine select { flex: 1 1 120px; }
+    .supportLine input { flex: 0 0 90px; }
+    .supportLine button { flex: 0 0 auto; }
+
+    .sigGrid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .sigCard { border:1px solid #e6e8f0; border-radius:12px; padding:10px; background:#fff; }
+    .sigTop { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .sigTop b { font-size: 13px; }
+    .sigMeta { font-size: 11px; color:#666; margin-top:6px; display:flex; gap:12px; flex-wrap:wrap; }
+    .sigcanvas{
+      width:100%;
+      height:160px;
+      border:1px dashed #cfd6ee;
+      border-radius:10px;
+      touch-action:none;
+      display:block;
+      background: linear-gradient(to bottom, transparent 0 78%, rgba(0,0,0,.08) 78% 79%, transparent 79% 100%);
+    }
+
+    @media (max-width: 720px) {
+      .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
+      .sigGrid { grid-template-columns: 1fr; }
+      table { display:block; }
+      thead { display:none; }
+      tbody,tr,td { display:block; width:100%; }
+      tr { border:1px solid #eef0f6; border-radius:12px; padding:10px; margin:10px 0; background:#fff; }
+      td { border:none; padding:6px 0; }
+      td::before { content: attr(data-label); display:block; font-size:11px; color:#666; margin-bottom:4px; }
+      td:last-child button { width:100%; }
+    }
+  </style>
 </head>
 
 <body>
 <div class="wrap">
-<div class="card">
+  <div class="card">
+    <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
+    <div class="sub">
+      <span class="build">BUILD_ID: 2026-02-18__AUTO_ADD_CLIENT__v1</span>
+      <span class="pill" id="saveState">Ready</span>
+      <span class="pill" id="lockPill">Unlocked</span>
+    </div>
 
-<h2>Supported Employment Data Sheet</h2>
+    <div class="grid">
+      <div class="col-6">
+        <label>Client</label>
+        <select id="clientSelect"></select>
+        <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
+          <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
+          <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
+        </div>
+      </div>
 
-<label>Work Location</label>
-<input id="workLocation">
+      <div class="col-3">
+        <label>Plan Start (locked)</label>
+        <input id="planStartUS" placeholder="MM/DD/YYYY" readonly />
+      </div>
+      <div class="col-3">
+        <label>Plan End (locked)</label>
+        <input id="planEndUS" placeholder="MM/DD/YYYY" readonly />
+      </div>
 
-<label>Date (MM/DD/YYYY)</label>
-<input id="entryDateUS" placeholder="MM/DD/YYYY">
+      <div class="col-4">
+        <label>Work Location</label>
+        <input id="workLocation" placeholder="e.g., Albertsons" />
+      </div>
+      <div class="col-4">
+        <label>Date (MM/DD/YYYY)</label>
+        <input id="entryDateUS" placeholder="MM/DD/YYYY" inputmode="numeric" autocomplete="off" />
+      </div>
+      <div class="col-2">
+        <label>Time In</label>
+        <input id="timeIn" type="time" />
+      </div>
+      <div class="col-2">
+        <label>Time Out</label>
+        <input id="timeOut" type="time" />
+      </div>
 
-<label>Time In</label>
-<input id="timeIn" type="time">
+      <div class="col-12">
+        <label>Total Time (auto, quarter-hours)</label>
+        <input id="totalTime" readonly />
+      </div>
+    </div>
 
-<label>Time Out</label>
-<input id="timeOut" type="time">
+    <div class="rowhead">
+      <h2>Duties and Tasks</h2>
+      <div class="btnbar">
+        <button class="secondary tiny" id="addTask" type="button">Add Task</button>
+      </div>
+    </div>
+    <table class="tight">
+      <thead>
+        <tr>
+          <th style="width: 36%;">Task</th>
+          <th style="width: 14%;">Support</th>
+          <th>Note</th>
+          <th style="width: 90px;">Remove</th>
+        </tr>
+      </thead>
+      <tbody id="tasksBody"></tbody>
+    </table>
 
-<label>Total Time (auto)</label>
-<input id="totalTime" readonly>
+    <div class="rowhead">
+      <h2>Goals</h2>
+      <div class="btnbar">
+        <button class="secondary tiny" id="addGoal" type="button">Add Goal</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 42%;">Goal</th>
+          <th style="width: 24%;">Prompts (code + count)</th>
+          <th>Anecdotal Record</th>
+          <th style="width: 90px;">Remove</th>
+        </tr>
+      </thead>
+      <tbody id="goalsBody"></tbody>
+    </table>
 
-<hr>
+    <div class="rowhead">
+      <h2>Additional Notes (optional)</h2>
+    </div>
+    <textarea id="additionalNotes" placeholder="Optional"></textarea>
 
-<h3>Tasks</h3>
-<table width="100%">
-<tbody id="tasksBody"></tbody>
-</table>
-<div class="btnbar">
-<button id="addTask" class="secondary">Add Task</button>
-</div>
+    <div class="rowhead">
+      <h2>Signatures</h2>
+      <div class="hint">Client signature locks. Unlock clears signatures.</div>
+    </div>
 
-<hr>
+    <div class="sigGrid">
+      <div class="sigCard">
+        <div class="sigTop"><b>Client</b><span class="pill bad" id="clientSigStatus">Not signed</span></div>
+        <canvas class="sigcanvas" id="clientCanvas"></canvas>
+        <label style="margin-top:8px;">Printed name</label>
+        <input id="clientPrinted" />
+        <div class="sigMeta">Signed at: <span id="clientSignedAt">—</span></div>
+        <div class="btnbar" style="margin-top:8px;">
+          <button class="secondary tiny" id="clientClear" type="button">Clear</button>
+          <button class="tiny ok" id="clientSign" type="button">Client Sign (locks)</button>
+        </div>
+      </div>
 
-<h3>Goals</h3>
-<table width="100%">
-<tbody id="goalsBody"></tbody>
-</table>
-<div class="btnbar">
-<button id="addGoal" class="secondary">Add Goal</button>
-</div>
+      <div class="sigCard">
+        <div class="sigTop"><b>Coach</b><span class="pill bad" id="coachSigStatus">Not signed</span></div>
+        <canvas class="sigcanvas" id="coachCanvas"></canvas>
+        <label style="margin-top:8px;">Printed name</label>
+        <input id="coachPrinted" />
+        <div class="sigMeta">Signed at: <span id="coachSignedAt">—</span></div>
+        <div class="btnbar" style="margin-top:8px;">
+          <button class="secondary tiny" id="coachClear" type="button">Clear</button>
+          <button class="tiny" id="coachSign" type="button">Coach Sign</button>
+        </div>
+      </div>
 
-<hr>
+      <div class="sigCard">
+        <div class="sigTop"><b>Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
+        <canvas class="sigcanvas" id="specCanvas"></canvas>
+        <label style="margin-top:8px;">Printed name</label>
+        <input id="specPrinted" />
+        <div class="sigMeta">Signed at: <span id="specSignedAt">—</span></div>
+        <div class="btnbar" style="margin-top:8px;">
+          <button class="secondary tiny" id="specClear" type="button">Clear</button>
+          <button class="tiny warn" id="specFinal" type="button">Specialist Sign (FINAL)</button>
+        </div>
+      </div>
+    </div>
 
-<h3>Client Signature</h3>
-<canvas id="clientCanvas" class="sigcanvas"></canvas>
+    <div class="rowhead">
+      <h2>Unlock for Edits (PIN)</h2>
+      <div class="hint">PIN unlocks edits only. Coach can sign regardless.</div>
+    </div>
 
-<label>Printed Name</label>
-<input id="clientPrinted">
+    <div class="grid" style="align-items:end;">
+      <div class="col-4">
+        <label>Specialist Name</label>
+        <input id="unlockName" placeholder="Name" />
+      </div>
+      <div class="col-4">
+        <label>PIN</label>
+        <input id="unlockPin" type="password" placeholder="PIN" />
+      </div>
+      <div class="col-4">
+        <label>Unlocked at</label>
+        <input id="unlockAt" readonly />
+      </div>
+      <div class="col-12">
+        <div class="btnbar">
+          <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
+          <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
+        </div>
+      </div>
+    </div>
 
-<div class="btnbar">
-<button id="clientClear" class="secondary">Clear</button>
-<button id="clientSign" class="ok">Client Sign (locks)</button>
-</div>
-
-</div>
+    <div class="btnbar" style="margin-top:10px;">
+      <button id="saveNow" type="button">Save</button>
+      <button class="secondary" id="exportJson" type="button">Export JSON</button>
+      <button class="secondary" id="importJson" type="button">Import JSON</button>
+      <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
+    </div>
+  </div>
 </div>
 
 <script>
-// =====================================================
-// TIME CALC
-// =====================================================
+/* BUILD_ID: 2026-02-18__AUTO_ADD_CLIENT__v1 */
+
+const AUTO_ADD_CLIENT_FLAG = "witco_auto_add_client_once";
+const CLIENTS_KEY = "witco_clients_v3__AUTOADD_v1";
+const STORAGE_KEY_BASE = "witco_supported_employment_form__AUTOADD_v1";
+
+const DEFAULT_TASKS = [
+  "Clock in & out",
+  "Bag groceries for customers",
+  'Return "go-backs" to the appropriate shelves',
+  "Get carts from parking lot",
+  "Cleaning tasks as assigned by management"
+];
+const DEFAULT_GOALS = [
+  "When the client stops at customer service to get water, they will independently redirect back to work tasks within 1 minute, 50% of the time for 3 consecutive months.",
+  "Client will independently put quality into work when retrieving carts by organizing them in the cart corral based on type and/or size, 90% of the time for 3 consecutive months.",
+  "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
+];
+const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
+const PIN_DEFAULT = "2468";
+
+const el = (id) => document.getElementById(id);
+const E = {
+  clientSelect: el("clientSelect"),
+  planStartUS: el("planStartUS"),
+  planEndUS: el("planEndUS"),
+  workLocation: el("workLocation"),
+  entryDateUS: el("entryDateUS"),
+  timeIn: el("timeIn"),
+  timeOut: el("timeOut"),
+  totalTime: el("totalTime"),
+  tasksBody: el("tasksBody"),
+  goalsBody: el("goalsBody"),
+  additionalNotes: el("additionalNotes"),
+  saveState: el("saveState"),
+  lockPill: el("lockPill"),
+
+  addTask: el("addTask"),
+  addGoal: el("addGoal"),
+
+  clientCanvas: el("clientCanvas"),
+  coachCanvas: el("coachCanvas"),
+  specCanvas: el("specCanvas"),
+
+  clientPrinted: el("clientPrinted"),
+  coachPrinted: el("coachPrinted"),
+  specPrinted: el("specPrinted"),
+
+  clientSignedAt: el("clientSignedAt"),
+  coachSignedAt: el("coachSignedAt"),
+  specSignedAt: el("specSignedAt"),
+
+  clientSigStatus: el("clientSigStatus"),
+  coachSigStatus: el("coachSigStatus"),
+  specSigStatus: el("specSigStatus"),
+
+  clientClear: el("clientClear"),
+  coachClear: el("coachClear"),
+  specClear: el("specClear"),
+
+  clientSign: el("clientSign"),
+  coachSign: el("coachSign"),
+  specFinal: el("specFinal"),
+
+  unlockName: el("unlockName"),
+  unlockPin: el("unlockPin"),
+  unlockAt: el("unlockAt"),
+  unlockBtn: el("unlockBtn"),
+  relockBtn: el("relockBtn"),
+
+  saveNow: el("saveNow"),
+  exportJson: el("exportJson"),
+  importJson: el("importJson"),
+  wipeAll: el("wipeAll"),
+
+  addClientBtn: el("addClientBtn"),
+  editClientBtn: el("editClientBtn"),
+  demoBtn: el("demoBtn")
+};
+
+const formState = {
+  lockState: "unlocked",
+  sigs: {
+    client: { printed:"", signedAt:"", dataUrl:"" },
+    coach:  { printed:"", signedAt:"", dataUrl:"" },
+    spec:   { printed:"", signedAt:"", dataUrl:"" }
+  }
+};
+
+function setSaveState(text, kind="") {
+  E.saveState.textContent = text;
+  E.saveState.classList.remove("bad","good");
+  if (kind==="bad") E.saveState.classList.add("bad");
+  if (kind==="good") E.saveState.classList.add("good");
+}
+function setLockPill() {
+  E.lockPill.classList.remove("bad","good");
+  if (formState.lockState === "unlocked") { E.lockPill.textContent="Unlocked"; E.lockPill.classList.add("good"); }
+  if (formState.lockState === "locked")   { E.lockPill.textContent="Locked"; E.lockPill.classList.add("bad"); }
+  if (formState.lockState === "final")    { E.lockPill.textContent="FINAL"; E.lockPill.classList.add("bad"); }
+}
+
+function usToISO(us) {
+  const s = (us || "").trim();
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (!m) return "";
+  return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+}
+function isoToUS(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso||"").trim());
+  if (!m) return "";
+  return `${m[2]}/${m[3]}/${m[1]}`;
+}
+function todayUS() {
+  const d = new Date();
+  return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${d.getFullYear()}`;
+}
+E.entryDateUS.addEventListener("input", () => {
+  let v = E.entryDateUS.value.replace(/[^\d]/g, "").slice(0,8);
+  if (v.length >= 5) E.entryDateUS.value = v.slice(0,2)+"/"+v.slice(2,4)+"/"+v.slice(4);
+  else if (v.length >= 3) E.entryDateUS.value = v.slice(0,2)+"/"+v.slice(2);
+  else E.entryDateUS.value = v;
+});
+
+function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
+function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
+function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
+function getClientById(id) { return getClients().find(c => c.id === id); }
+function currentClientId() { return E.clientSelect.value || ""; }
+
+function renderClientSelect(selectedId=null) {
+  const clients = getClients();
+  E.clientSelect.innerHTML = "";
+  if (!clients.length) {
+    const opt = document.createElement("option");
+    opt.value=""; opt.textContent="No clients loaded";
+    E.clientSelect.appendChild(opt);
+    return;
+  }
+  clients.forEach(c => {
+    const opt=document.createElement("option");
+    opt.value=c.id; opt.textContent=c.name;
+    E.clientSelect.appendChild(opt);
+  });
+  E.clientSelect.value = selectedId || clients[0].id;
+}
+
 function minutesBetween(t1,t2){
   if(!t1||!t2) return null;
   const [h1,m1]=t1.split(":").map(Number);
@@ -113,216 +428,466 @@ function minutesBetween(t1,t2){
   if(b<a) b+=1440;
   return b-a;
 }
-
-function minutesToQuarterHours(min){
-  if(min==null) return "";
-  const rounded=Math.round(min/15)*15;
+function minutesToQuarterHours(mins){
+  if(mins==null) return "";
+  const rounded = Math.round(mins/15)*15;
   return (rounded/60).toFixed(2);
 }
-
 function recalcTotalTime(){
-  const mins=minutesBetween(timeIn.value,timeOut.value);
-  totalTime.value=minutesToQuarterHours(mins);
+  const mins=minutesBetween(E.timeIn.value,E.timeOut.value);
+  E.totalTime.value=minutesToQuarterHours(mins);
+}
+E.timeIn.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
+E.timeOut.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
+
+function makeSupportSelect(value=""){
+  const s=document.createElement("select");
+  SUPPORT_LEVELS.forEach(v=>{
+    const o=document.createElement("option");
+    o.value=v; o.textContent=v||"(select)";
+    if(v===value) o.selected=true;
+    s.appendChild(o);
+  });
+  return s;
 }
 
-timeIn.oninput=timeOut.oninput=recalcTotalTime;
-
-// =====================================================
-// TASKS
-// =====================================================
-function addTaskRow(data={}){
+function addTaskRow(tbody, rowData){
   const tr=document.createElement("tr");
 
-  tr.innerHTML=`
-    <td><input placeholder="Task..." value="${data.title||""}"></td>
-    <td>
-      <select>
-        <option value=""></option>
-        <option>I</option><option>IR</option><option>VI</option>
-        <option>M</option><option>P</option><option>R</option>
-      </select>
-    </td>
-    <td><input placeholder="Note..." value="${data.note||""}"></td>
-    <td><button type="button">Remove</button></td>
-  `;
+  const tdTitle=document.createElement("td"); tdTitle.setAttribute("data-label","Task");
+  const title=document.createElement("input");
+  title.value=rowData.title||""; title.placeholder="Task...";
+  tdTitle.appendChild(title);
 
-  tr.querySelector("button").onclick=()=>tr.remove();
-  tasksBody.appendChild(tr);
+  const tdSupport=document.createElement("td"); tdSupport.setAttribute("data-label","Support");
+  const support=makeSupportSelect(rowData.support||"");
+  tdSupport.appendChild(support);
+
+  const tdNote=document.createElement("td"); tdNote.setAttribute("data-label","Note");
+  const note=document.createElement("input");
+  note.value=rowData.note||""; note.placeholder="Note...";
+  tdNote.appendChild(note);
+
+  const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
+  const btn=document.createElement("button");
+  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
+  btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
+  tdRemove.appendChild(btn);
+
+  tr.appendChild(tdTitle); tr.appendChild(tdSupport); tr.appendChild(tdNote); tr.appendChild(tdRemove);
+
+  [title,support,note].forEach(n=>{
+    n.addEventListener("input", autosave);
+    n.addEventListener("change", autosave);
+  });
+
+  tbody.appendChild(tr);
 }
-addTask.onclick=()=>addTaskRow();
+function getTasks(){
+  return [...E.tasksBody.querySelectorAll("tr")].map(tr=>{
+    const inputs=tr.querySelectorAll("input, select");
+    return { title:inputs[0].value.trim(), support:inputs[1].value, note:inputs[2].value.trim() };
+  });
+}
+function setTasks(data){
+  E.tasksBody.innerHTML="";
+  (data||[]).forEach(d=>addTaskRow(E.tasksBody,d));
+}
 
-// =====================================================
-// GOALS + PROMPTS
-// =====================================================
-function addPromptLine(container,p={}){
+function addPromptLine(container, promptData){
   const line=document.createElement("div");
   line.className="supportLine";
-  line.innerHTML=`
-    <select>
-      <option value=""></option>
-      <option>I</option><option>IR</option><option>VI</option>
-      <option>M</option><option>P</option><option>R</option>
-    </select>
-    <input type="number" min="1" placeholder="Count" value="${p.count||1}">
-    <button type="button">X</button>
-  `;
-  line.querySelector("button").onclick=()=>line.remove();
+
+  const sel=makeSupportSelect(promptData?.code||"");
+  const cnt=document.createElement("input");
+  cnt.type="number"; cnt.min="1"; cnt.step="1";
+  cnt.value = (promptData?.count ?? 1);
+
+  const rm=document.createElement("button");
+  rm.type="button"; rm.className="secondary tiny"; rm.textContent="X";
+  rm.addEventListener("click", ()=>{ line.remove(); autosave(); });
+
+  [sel,cnt].forEach(n=>{ n.addEventListener("input", autosave); n.addEventListener("change", autosave); });
+
+  line.appendChild(sel); line.appendChild(cnt); line.appendChild(rm);
   container.appendChild(line);
 }
-
-function addGoalRow(data={}){
+function autosizeTA(ta){
+  ta.style.height="auto";
+  ta.style.height=(ta.scrollHeight)+"px";
+}
+function addGoalRow(tbody, rowData){
   const tr=document.createElement("tr");
 
-  const promptWrap=document.createElement("div");
-  promptWrap.className="supportLines";
-  addPromptLine(promptWrap,{});
+  const tdGoal=document.createElement("td"); tdGoal.setAttribute("data-label","Goal");
+  const goal=document.createElement("textarea");
+  goal.value=rowData.title||""; goal.placeholder="Goal...";
+  tdGoal.appendChild(goal);
 
-  tr.innerHTML=`
-    <td><textarea placeholder="Goal...">${data.title||""}</textarea></td>
-    <td></td>
-    <td><textarea placeholder="Anecdotal...">${data.note||""}</textarea></td>
-    <td><button type="button">Remove</button></td>
-  `;
+  const tdPrompts=document.createElement("td"); tdPrompts.setAttribute("data-label","Prompts");
+  const wrap=document.createElement("div");
+  wrap.className="supportLines";
+  const prompts = Array.isArray(rowData.prompts) ? rowData.prompts : [];
+  if (prompts.length) prompts.forEach(p=>addPromptLine(wrap,p));
+  else addPromptLine(wrap,{code:"",count:1});
 
-  tr.children[1].appendChild(promptWrap);
+  const addP=document.createElement("button");
+  addP.type="button"; addP.className="secondary tiny"; addP.textContent="+ Prompt";
+  addP.addEventListener("click", ()=>{ addPromptLine(wrap,{code:"",count:1}); autosave(); });
 
-  tr.querySelector("button").onclick=()=>tr.remove();
-  goalsBody.appendChild(tr);
+  tdPrompts.appendChild(wrap);
+  tdPrompts.appendChild(addP);
+
+  const tdNote=document.createElement("td"); tdNote.setAttribute("data-label","Anecdotal Record");
+  const note=document.createElement("textarea");
+  note.value=rowData.note||""; note.placeholder="Anecdotal record...";
+  tdNote.appendChild(note);
+
+  const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
+  const btn=document.createElement("button");
+  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
+  btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
+  tdRemove.appendChild(btn);
+
+  tr.appendChild(tdGoal); tr.appendChild(tdPrompts); tr.appendChild(tdNote); tr.appendChild(tdRemove);
+
+  const resizeAll=()=>{ autosizeTA(goal); autosizeTA(note); };
+  goal.addEventListener("input", ()=>{ resizeAll(); autosave(); });
+  note.addEventListener("input", ()=>{ resizeAll(); autosave(); });
+  setTimeout(resizeAll,0);
+
+  tbody.appendChild(tr);
 }
-addGoal.onclick=()=>addGoalRow();
+function getGoals(){
+  return [...E.goalsBody.querySelectorAll("tr")].map(tr=>{
+    const tas=tr.querySelectorAll("textarea");
+    const lines=[...tr.querySelectorAll(".supportLine")];
+    const prompts=lines.map(line=>{
+      const sel=line.querySelector("select");
+      const cnt=line.querySelector('input[type="number"]');
+      return { code: sel?.value || "", count: parseInt(cnt?.value||"0",10)||0 };
+    });
+    return { title:(tas[0]?.value||"").trim(), prompts, note:(tas[1]?.value||"").trim() };
+  });
+}
+function setGoals(data){
+  E.goalsBody.innerHTML="";
+  (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
+}
 
-// =====================================================
-// SIGNATURE PAD (mobile safe)
-// =====================================================
-function createSigPad(canvas){
+function sizeCanvasToCSS(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function createSigPad(canvas, getData, setData) {
   const ctx=canvas.getContext("2d");
-  let drawing=false,last=null;
+  let drawing=false;
+  let last=null;
+
+  function redraw(){
+    sizeCanvasToCSS(canvas);
+    const dataUrl=getData();
+    if(!dataUrl) return;
+    const img=new Image();
+    img.onload=()=>{
+      const r=canvas.getBoundingClientRect();
+      ctx.clearRect(0,0,r.width,r.height);
+      ctx.drawImage(img,0,0,r.width,r.height);
+    };
+    img.src=dataUrl;
+  }
+
+  function clear(){
+    sizeCanvasToCSS(canvas);
+    const r=canvas.getBoundingClientRect();
+    ctx.clearRect(0,0,r.width,r.height);
+    setData("");
+  }
 
   function pos(e){
     const r=canvas.getBoundingClientRect();
-    return{x:e.clientX-r.left,y:e.clientY-r.top};
+    return { x:e.clientX-r.left, y:e.clientY-r.top };
   }
 
-  canvas.onpointerdown=e=>{
+  canvas.addEventListener("pointerdown",(e)=>{
+    sizeCanvasToCSS(canvas);
     drawing=true;
     last=pos(e);
-    canvas.setPointerCapture(e.pointerId);
-  };
+    canvas.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
 
-  canvas.onpointermove=e=>{
+  canvas.addEventListener("pointermove",(e)=>{
     if(!drawing) return;
     const p=pos(e);
     ctx.lineWidth=2;
     ctx.lineCap="round";
+    ctx.strokeStyle="#111";
     ctx.beginPath();
     ctx.moveTo(last.x,last.y);
     ctx.lineTo(p.x,p.y);
     ctx.stroke();
     last=p;
-  };
+    e.preventDefault();
+  });
 
-  canvas.onpointerup=canvas.onpointercancel=()=>drawing=false;
+  function end(e){
+    if(!drawing) return;
+    drawing=false;
+    last=null;
 
-  return{
-    clear(){ctx.clearRect(0,0,canvas.width,canvas.height)},
-    hasInk(){
-      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-      return pixels.some(v=>v!==0);
-    }
-  };
+    const r=canvas.getBoundingClientRect();
+    const tmp=document.createElement("canvas");
+    tmp.width=Math.max(1, Math.round(r.width));
+    tmp.height=Math.max(1, Math.round(r.height));
+    tmp.getContext("2d").drawImage(canvas,0,0,tmp.width,tmp.height);
+    setData(tmp.toDataURL("image/png"));
+    autosave();
+    e.preventDefault();
+  }
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+
+  setTimeout(()=>{ sizeCanvasToCSS(canvas); redraw(); },0);
+  window.addEventListener("resize", ()=>{ sizeCanvasToCSS(canvas); redraw(); });
+
+  return { clear, redraw };
 }
 
-const clientPad=createSigPad(clientCanvas);
-
-// =====================================================
-// 🔥 CONDITIONAL REQUIRED LOGIC (YOUR RULE)
-// =====================================================
-function requireForClientLock(){
-
-  document.querySelectorAll(".req-bad")
-    .forEach(x=>x.classList.remove("req-bad"));
-
-  const missing=[];
-  const bad=(node,msg)=>{node?.classList.add("req-bad");missing.push(msg)};
-
-  const tasks=[...tasksBody.querySelectorAll("tr")];
-  const goals=[...goalsBody.querySelectorAll("tr")];
-
-  // detect activity
-  const hasTask=tasks.some(tr=>{
-    const i=tr.querySelectorAll("input,select");
-    return i[0].value||i[1].value||i[2].value;
-  });
-
-  const hasGoal=goals.some(tr=>{
-    const tas=tr.querySelectorAll("textarea");
-    return tas[0].value||tas[1].value;
-  });
-
-  const hasWork=hasTask||hasGoal;
-
-  // time required if work exists
-  if(hasWork){
-    if(!timeIn.value) bad(timeIn,"Time In required");
-    if(!timeOut.value) bad(timeOut,"Time Out required");
-    if(!totalTime.value) bad(totalTime,"Total Time missing");
-  }
-
-  // task completeness
-  tasks.forEach((tr,i)=>{
-    const ixs=tr.querySelectorAll("input,select");
-    const used=ixs[0].value||ixs[1].value||ixs[2].value;
-    if(!used) return;
-
-    if(!ixs[0].value) bad(ixs[0],`Task ${i+1} text required`);
-    if(!ixs[1].value) bad(ixs[1],`Task ${i+1} support required`);
-    if(!ixs[2].value) bad(ixs[2],`Task ${i+1} note required`);
-  });
-
-  // goal completeness
-  goals.forEach((tr,i)=>{
-    const tas=tr.querySelectorAll("textarea");
-    const used=tas[0].value||tas[1].value;
-    if(!used) return;
-
-    if(!tas[0].value) bad(tas[0],`Goal ${i+1} text required`);
-    if(!tas[1].value) bad(tas[1],`Goal ${i+1} anecdotal required`);
-
-    const lines=[...tr.querySelectorAll(".supportLine")];
-    let ok=false;
-
-    lines.forEach(line=>{
-      const sel=line.querySelector("select");
-      const cnt=line.querySelector("input");
-      if(sel.value&&cnt.value>0) ok=true;
-    });
-
-    if(!ok) missing.push(`Goal ${i+1} needs prompt`);
-  });
-
-  // base fields
-  if(!workLocation.value.trim()) bad(workLocation,"Work Location required");
-  if(!entryDateUS.value.trim()) bad(entryDateUS,"Date required");
-  if(!clientPrinted.value.trim()) bad(clientPrinted,"Printed name required");
-  if(!clientPad.hasInk()) missing.push("Client signature required");
-
-  if(missing.length){
-    alert("Client Sign blocked:\n\n- "+[...new Set(missing)].join("\n- "));
-    return false;
-  }
-  return true;
-}
-
-// =====================================================
-// SIGN BUTTON
-// =====================================================
-clientSign.onclick=()=>{
-  if(!requireForClientLock()) return;
-  alert("Client signed and form locked.");
+const sigPads = {
+  client: createSigPad(E.clientCanvas, ()=>formState.sigs.client.dataUrl, d=>formState.sigs.client.dataUrl=d),
+  coach:  createSigPad(E.coachCanvas,  ()=>formState.sigs.coach.dataUrl,  d=>formState.sigs.coach.dataUrl=d),
+  spec:   createSigPad(E.specCanvas,   ()=>formState.sigs.spec.dataUrl,   d=>formState.sigs.spec.dataUrl=d)
 };
 
-clientClear.onclick=()=>clientPad.clear();
+function nowStamp(){ return new Date().toLocaleString(); }
+function setEditingEnabled(enabled){
+  [E.workLocation,E.entryDateUS,E.timeIn,E.timeOut,E.additionalNotes].forEach(n=>n.disabled=!enabled);
+  E.tasksBody.querySelectorAll("input,select,button").forEach(n=>n.disabled=!enabled);
+  E.goalsBody.querySelectorAll("textarea,select,input,button").forEach(n=>n.disabled=!enabled);
+  E.addTask.disabled=!enabled;
+  E.addGoal.disabled=!enabled;
+  E.saveNow.disabled=!enabled;
+}
+function updateLockUI(){
+  setLockPill();
+  setEditingEnabled(formState.lockState==="unlocked");
+}
 
+function snapshot(){
+  const cid=currentClientId();
+  const c=getClientById(cid);
+  return {
+    build:"2026-02-18__AUTO_ADD_CLIENT__v1",
+    clientId:cid,
+    clientName:c?.name||"",
+    planStartISO:c?.planStartISO||"",
+    planEndISO:c?.planEndISO||"",
+    workLocation:E.workLocation.value,
+    entryDateISO:usToISO(E.entryDateUS.value),
+    timeIn:E.timeIn.value,
+    timeOut:E.timeOut.value,
+    totalTime:E.totalTime.value,
+    tasks:getTasks(),
+    goals:getGoals(),
+    additionalNotes:E.additionalNotes.value,
+    lockState:formState.lockState,
+    unlock:{name:E.unlockName.value, at:E.unlockAt.value},
+    sigs:formState.sigs
+  };
+}
+function apply(data){
+  const cid=currentClientId();
+  const c=getClientById(cid);
+  E.planStartUS.value=isoToUS(c?.planStartISO||"");
+  E.planEndUS.value=isoToUS(c?.planEndISO||"");
+
+  E.workLocation.value=data.workLocation||c?.workLocation||"";
+  E.entryDateUS.value=isoToUS(data.entryDateISO||"") || todayUS();
+  E.timeIn.value=data.timeIn||"";
+  E.timeOut.value=data.timeOut||"";
+  recalcTotalTime();
+
+  setTasks(Array.isArray(data.tasks)?data.tasks:[]);
+  setGoals(Array.isArray(data.goals)?data.goals:[]);
+  E.additionalNotes.value=data.additionalNotes||"";
+
+  formState.lockState=data.lockState||"unlocked";
+  E.unlockName.value=data.unlock?.name||"";
+  E.unlockAt.value=data.unlock?.at||"";
+
+  formState.sigs=data.sigs || formState.sigs;
+  updateLockUI();
+}
+let saveTimer=null;
+function autosave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    const cid=currentClientId();
+    if(!cid) return;
+    localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+    setSaveState("Saved","good");
+    setTimeout(()=>setSaveState("Saved (idle)",""),800);
+  },150);
+}
+
+function loadClientTemplate(client){
+  E.planStartUS.value=isoToUS(client.planStartISO||"");
+  E.planEndUS.value=isoToUS(client.planEndISO||"");
+  E.workLocation.value=client.workLocation||"";
+  E.entryDateUS.value=todayUS();
+  E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
+  E.additionalNotes.value="";
+
+  setTasks((client.tasks || DEFAULT_TASKS).map(t=>({title:t,support:"",note:""})));
+  setGoals((client.goals || DEFAULT_GOALS).map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
+
+  formState.lockState="unlocked";
+  updateLockUI();
+  autosave();
+}
+function loadSavedForClient(clientId){
+  const raw=localStorage.getItem(storageKeyFor(clientId));
+  if(!raw) return false;
+  try { apply(JSON.parse(raw)); return true; } catch { return false; }
+}
+function onClientChange(){
+  const cid=currentClientId();
+  const client=getClientById(cid);
+  if(!client) return;
+
+  const loaded=loadSavedForClient(cid);
+  if(!loaded) loadClientTemplate(client);
+  setSaveState(loaded ? "Loaded saved entry" : "Loaded template", "good");
+}
+E.clientSelect.addEventListener("change", ()=>onClientChange());
+
+E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
+E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
+
+function download(filename,text){
+  const blob=new Blob([text],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+E.saveNow.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot())); setSaveState("Saved","good"); });
+E.exportJson.addEventListener("click", ()=>{
+  const data=snapshot();
+  const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  download(`TA_${safe}_${data.entryDateISO||"no_date"}.json`, JSON.stringify(data,null,2));
+});
+E.importJson.addEventListener("click", ()=>{
+  const raw=prompt("Paste JSON:");
+  if(!raw) return;
+  try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
+});
+
+function addOrUpdateClient(existingId=null){
+  const clients=getClients();
+  const existing=existingId ? clients.find(c=>c.id===existingId) : null;
+
+  const name=prompt("Client name:", existing?.name || "");
+  if(!name) return;
+
+  const ps=prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStartISO) : "12/19/2025");
+  const pe=prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEndISO) : "12/18/2026");
+  const planStartISO=usToISO(ps||"");
+  const planEndISO=usToISO(pe||"");
+  if(!planStartISO || !planEndISO) return alert("Plan dates must be MM/DD/YYYY");
+
+  const workLocation=prompt("Work Location:", existing?.workLocation || "") || "";
+
+  const tasksRaw=prompt("Tasks (one per line):", (existing?.tasks || DEFAULT_TASKS).join("\n")) || "";
+  const tasks=tasksRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  const goalsRaw=prompt("Goals (one per line):", (existing?.goals || DEFAULT_GOALS).join("\n")) || "";
+  const goals=goalsRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  const payload={
+    id: existing?.id || ("client_" + Math.random().toString(16).slice(2)),
+    name,
+    planStartISO, planEndISO,
+    workLocation,
+    tasks: tasks.length ? tasks : DEFAULT_TASKS.slice(),
+    goals: goals.length ? goals : DEFAULT_GOALS.slice()
+  };
+
+  if(existing){
+    const idx=clients.findIndex(c=>c.id===existing.id);
+    clients[idx]=payload;
+    saveClients(clients);
+    renderClientSelect(existing.id);
+    onClientChange();
+    return;
+  }
+
+  clients.push(payload);
+  saveClients(clients);
+  renderClientSelect(payload.id);
+  onClientChange();
+}
+
+E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
+E.editClientBtn.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; addOrUpdateClient(cid); });
+E.demoBtn.addEventListener("click", ()=>{
+  saveClients([{
+    id:"client_1",
+    name:"Test Client A",
+    planStartISO:"2025-12-19",
+    planEndISO:"2026-12-18",
+    workLocation:"Albertsons",
+    tasks: DEFAULT_TASKS,
+    goals: DEFAULT_GOALS
+  }]);
+  renderClientSelect("client_1");
+  onClientChange();
+});
+
+/* ✅ UPDATED WIPE BEHAVIOR:
+   - wipe local storage
+   - set a one-time flag
+   - reload
+   - after reload, auto-open Add Client flow */
+E.wipeAll.addEventListener("click", ()=>{
+  if(!confirm("Wipe ALL local data on this device?")) return;
+
+  localStorage.removeItem(CLIENTS_KEY);
+  Object.keys(localStorage).forEach(k=>{
+    if(k.startsWith(STORAGE_KEY_BASE+":")) localStorage.removeItem(k);
+  });
+
+  localStorage.setItem(AUTO_ADD_CLIENT_FLAG, "1");
+  location.reload();
+});
+
+// Init
+(function init(){
+  renderClientSelect();
+  const clients=getClients();
+
+  if(clients.length){
+    renderClientSelect(clients[0].id);
+    onClientChange();
+    setSaveState("Ready","good");
+  } else {
+    E.entryDateUS.value=todayUS();
+    setSaveState("No clients loaded","bad");
+    updateLockUI();
+  }
+
+  // If wipe was just used, auto-run Add Client once
+  if(localStorage.getItem(AUTO_ADD_CLIENT_FLAG) === "1"){
+    localStorage.removeItem(AUTO_ADD_CLIENT_FLAG);
+    setTimeout(()=>addOrUpdateClient(null), 200);
+  }
+})();
 </script>
+
 </body>
 </html>
