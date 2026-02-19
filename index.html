@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Medicaid Supported Employment Data Sheet</title>
 
+  <!-- Supabase JS (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; background: #f6f7fb; color: #111; }
@@ -16,6 +19,7 @@
     .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
     .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
     .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
+    .pill.warn { background:#fffbcc; border-color:#f3e58a; color:#5a4a00; }
 
     .build {
       display:inline-block;
@@ -103,6 +107,11 @@
     .errbox ul { margin:6px 0 0 18px; }
     .errbox li { margin:2px 0; }
 
+    .authWrap { max-width: 520px; margin: 20px auto; }
+    .authTitle { font-size: 16px; margin: 0 0 6px; }
+    .muted { color:#666; font-size:12px; line-height:1.35; }
+    .divider { height:1px; background:#eef0f6; margin:12px 0; }
+
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
       .sigGrid { grid-template-columns: 1fr; }
@@ -119,12 +128,55 @@
 
 <body>
 <div class="wrap">
-  <div class="card">
+
+  <!-- AUTH CARD -->
+  <div class="card authWrap" id="authCard">
+    <h2 class="authTitle">Sign in</h2>
+    <div class="muted">
+      This is the part where we stop pretending “a public URL” is a security plan.
+      Log in to save TAs centrally.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid">
+      <div class="col-12">
+        <label>Email</label>
+        <input id="authEmail" type="email" autocomplete="username" placeholder="you@company.org" />
+      </div>
+      <div class="col-12">
+        <label>Password</label>
+        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <div class="col-12">
+        <div class="btnbar">
+          <button id="loginBtn" type="button">Login</button>
+          <button class="secondary" id="logoutBtn" type="button" style="display:none;">Logout</button>
+          <span class="pill bad" id="authStatus">Not signed in</span>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="errbox" id="authErrorBox" style="display:none;">
+          <b>Auth error:</b>
+          <div id="authErrorText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="muted">
+      If you get stuck: verify the project URL and that Email provider is enabled in Supabase Auth.
+    </div>
+  </div>
+
+  <!-- APP CARD -->
+  <div class="card" id="appCard" style="display:none;">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-18__required_v1</span>
+      <span class="build">BUILD_ID: 2026-02-19__supabase_v1</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
+      <span class="pill warn" id="userPill">User: —</span>
     </div>
 
     <div id="errorBox" class="errbox">
@@ -139,7 +191,7 @@
         <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
           <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
-          <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
+          <button class="secondary tiny" id="reloadClientsBtn" type="button">Reload Clients</button>
         </div>
       </div>
 
@@ -293,14 +345,21 @@
       <button class="secondary" id="exportJson" type="button">Export JSON</button>
       <button class="secondary" id="importJson" type="button">Import JSON</button>
       <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
+
+      <span style="flex:1 1 auto"></span>
+
+      <button class="ok" id="submitSupabase" type="button">Submit to Supabase</button>
     </div>
   </div>
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-18__required_v1 */
+/* BUILD_ID: 2026-02-19__supabase_v1 */
 
-const CLIENTS_KEY = "witco_clients_required_v1";
+const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
 
@@ -317,9 +376,23 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
+
 const el = (id) => document.getElementById(id);
 
 const E = {
+  // auth
+  authCard: el("authCard"),
+  appCard: el("appCard"),
+  authEmail: el("authEmail"),
+  authPass: el("authPass"),
+  loginBtn: el("loginBtn"),
+  logoutBtn: el("logoutBtn"),
+  authStatus: el("authStatus"),
+  authErrorBox: el("authErrorBox"),
+  authErrorText: el("authErrorText"),
+  userPill: el("userPill"),
+
+  // form
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
   planEndUS: el("planEndUS"),
@@ -378,11 +451,16 @@ const E = {
 
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
-  demoBtn: el("demoBtn"),
+  reloadClientsBtn: el("reloadClientsBtn"),
+
+  submitSupabase: el("submitSupabase"),
 
   errorBox: el("errorBox"),
   errorList: el("errorList")
 };
+
+let currentUser = null;
+let clientsCache = []; // [{id, display_name, plan_start, plan_end, work_location}]
 
 const formState = {
   lockState: "unlocked", // unlocked | locked | final
@@ -395,9 +473,8 @@ const formState = {
 
 function setSaveState(text, kind="") {
   E.saveState.textContent = text;
-  E.saveState.classList.remove("bad","good");
-  if (kind==="bad") E.saveState.classList.add("bad");
-  if (kind==="good") E.saveState.classList.add("good");
+  E.saveState.classList.remove("bad","good","warn");
+  if (kind) E.saveState.classList.add(kind);
 }
 function setLockPill() {
   E.lockPill.classList.remove("bad","good");
@@ -446,27 +523,8 @@ E.entryDateUS.addEventListener("input", () => {
 });
 
 function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
-function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
-function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
-function getClientById(id) { return getClients().find(c => c.id === id); }
 function currentClientId() { return E.clientSelect.value || ""; }
-
-function renderClientSelect(selectedId=null) {
-  const clients = getClients();
-  E.clientSelect.innerHTML = "";
-  if (!clients.length) {
-    const opt = document.createElement("option");
-    opt.value=""; opt.textContent="No clients loaded";
-    E.clientSelect.appendChild(opt);
-    return;
-  }
-  clients.forEach(c => {
-    const opt=document.createElement("option");
-    opt.value=c.id; opt.textContent=c.name;
-    E.clientSelect.appendChild(opt);
-  });
-  E.clientSelect.value = selectedId || clients[0].id;
-}
+function getClientById(id) { return clientsCache.find(c => c.id === id); }
 
 function minutesBetween(t1,t2){
   if(!t1||!t2) return null;
@@ -664,10 +722,8 @@ function validateRequiredForSigning() {
     const anecdotal = (tas[1]?.value || "").trim();
 
     if (goalTitle) {
-      // Anecdotal required
       if (!anecdotal) errors.push({ msg: `Goal ${idx+1}: Anecdotal record is required when a goal is listed.`, node: tas[1] });
 
-      // Prompts required: at least one with code and count>0
       const lines = [...tr.querySelectorAll(".supportLine")];
       const validPrompt = lines.some(line => {
         const sel = line.querySelector("select");
@@ -678,13 +734,11 @@ function validateRequiredForSigning() {
       });
 
       if (!validPrompt) {
-        // Mark all prompt selects invalid to be obvious
         const firstSel = tr.querySelector(".supportLine select");
         errors.push({ msg: `Goal ${idx+1}: At least one prompt (code + count) is required when a goal is listed.`, node: firstSel || tr });
         tr.querySelectorAll(".supportLine select").forEach(s => s.classList.add("invalid"));
         tr.querySelectorAll(".supportLine input[type='number']").forEach(n => n.classList.add("invalid"));
       } else {
-        // If there are lines but some are half-filled, flag them
         lines.forEach((line, j) => {
           const sel = line.querySelector("select");
           const cnt = line.querySelector('input[type="number"]');
@@ -842,6 +896,37 @@ function updateLockUI(){
   setEditingEnabled(formState.lockState==="unlocked");
 }
 
+let sigPads = null;
+function initSigPads() {
+  sigPads = {
+    client: createSigPad(
+      E.clientCanvas,
+      ()=>formState.sigs.client.dataUrl,
+      (d)=>formState.sigs.client.dataUrl=d,
+      ()=>formState.sigs.client.strokes,
+      (n)=>formState.sigs.client.strokes=n,
+      E.clientDebug
+    ),
+    coach: createSigPad(
+      E.coachCanvas,
+      ()=>formState.sigs.coach.dataUrl,
+      (d)=>formState.sigs.coach.dataUrl=d,
+      ()=>formState.sigs.coach.strokes,
+      (n)=>formState.sigs.coach.strokes=n,
+      E.coachDebug
+    ),
+    spec: createSigPad(
+      E.specCanvas,
+      ()=>formState.sigs.spec.dataUrl,
+      (d)=>formState.sigs.spec.dataUrl=d,
+      ()=>formState.sigs.spec.strokes,
+      (n)=>formState.sigs.spec.strokes=n,
+      E.specDebug
+    )
+  };
+}
+initSigPads();
+
 function syncSigBadges(){
   const hasClient = !!formState.sigs.client.dataUrl;
   const hasCoach  = !!formState.sigs.coach.dataUrl;
@@ -866,11 +951,11 @@ function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-18__required_v1",
+    build:"2026-02-19__supabase_v1",
     clientId:cid,
-    clientName:c?.name||"",
-    planStartISO:c?.planStartISO||"",
-    planEndISO:c?.planEndISO||"",
+    clientName:c?.display_name||"",
+    planStartISO: c?.plan_start ? String(c.plan_start) : "",
+    planEndISO: c?.plan_end ? String(c.plan_end) : "",
     workLocation:E.workLocation.value,
     entryDateISO:usToISO(E.entryDateUS.value),
     timeIn:E.timeIn.value,
@@ -888,10 +973,11 @@ function snapshot(){
 function apply(data){
   const cid=currentClientId();
   const c=getClientById(cid);
-  E.planStartUS.value=isoToUS(c?.planStartISO||"");
-  E.planEndUS.value=isoToUS(c?.planEndISO||"");
 
-  E.workLocation.value=data.workLocation||c?.workLocation||"";
+  E.planStartUS.value= c?.plan_start ? isoToUS(String(c.plan_start)) : isoToUS(data.planStartISO||"");
+  E.planEndUS.value  = c?.plan_end   ? isoToUS(String(c.plan_end))   : isoToUS(data.planEndISO||"");
+
+  E.workLocation.value=data.workLocation||c?.work_location||"";
   E.entryDateUS.value=isoToUS(data.entryDateISO||"") || todayUS();
   E.timeIn.value=data.timeIn||"";
   E.timeOut.value=data.timeOut||"";
@@ -931,49 +1017,22 @@ function autosave(){
   },150);
 }
 
-/* ---------- sig pads init ---------- */
-let sigPads = null;
-function initSigPads() {
-  sigPads = {
-    client: createSigPad(
-      E.clientCanvas,
-      ()=>formState.sigs.client.dataUrl,
-      (d)=>formState.sigs.client.dataUrl=d,
-      ()=>formState.sigs.client.strokes,
-      (n)=>formState.sigs.client.strokes=n,
-      E.clientDebug
-    ),
-    coach: createSigPad(
-      E.coachCanvas,
-      ()=>formState.sigs.coach.dataUrl,
-      (d)=>formState.sigs.coach.dataUrl=d,
-      ()=>formState.sigs.coach.strokes,
-      (n)=>formState.sigs.coach.strokes=n,
-      E.coachDebug
-    ),
-    spec: createSigPad(
-      E.specCanvas,
-      ()=>formState.sigs.spec.dataUrl,
-      (d)=>formState.sigs.spec.dataUrl=d,
-      ()=>formState.sigs.spec.strokes,
-      (n)=>formState.sigs.spec.strokes=n,
-      E.specDebug
-    )
-  };
+function loadSavedForClient(clientId){
+  const raw=localStorage.getItem(storageKeyFor(clientId));
+  if(!raw) return false;
+  try { apply(JSON.parse(raw)); return true; } catch { return false; }
 }
-initSigPads();
 
-/* ---------- wiring ---------- */
 function loadClientTemplate(client){
-  E.planStartUS.value=isoToUS(client.planStartISO||"");
-  E.planEndUS.value=isoToUS(client.planEndISO||"");
-  E.workLocation.value=client.workLocation||"";
-  E.entryDateUS.value=todayUS();
+  E.planStartUS.value = client?.plan_start ? isoToUS(String(client.plan_start)) : "";
+  E.planEndUS.value   = client?.plan_end   ? isoToUS(String(client.plan_end))   : "";
+  E.workLocation.value = client?.work_location || "";
+  E.entryDateUS.value = todayUS();
   E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
   E.additionalNotes.value="";
 
-  setTasks((client.tasks || DEFAULT_TASKS).map(t=>({title:t,support:"",note:""})));
-  setGoals((client.goals || DEFAULT_GOALS).map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
+  setTasks(DEFAULT_TASKS.map(t=>({title:t,support:"",note:""})));
+  setGoals(DEFAULT_GOALS.map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
 
   formState.lockState="unlocked";
   formState.sigs = {
@@ -988,12 +1047,6 @@ function loadClientTemplate(client){
   syncSigBadges();
   updateLockUI();
   autosave();
-}
-
-function loadSavedForClient(clientId){
-  const raw=localStorage.getItem(storageKeyFor(clientId));
-  if(!raw) return false;
-  try { apply(JSON.parse(raw)); return true; } catch { return false; }
 }
 
 function onClientChange(){
@@ -1041,71 +1094,8 @@ E.importJson.addEventListener("click", ()=>{
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
-
-function addOrUpdateClient(existingId=null){
-  const clients=getClients();
-  const existing=existingId ? clients.find(c=>c.id===existingId) : null;
-
-  const name=prompt("Client name:", existing?.name || "");
-  if(!name) return;
-
-  const ps=prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStartISO) : "12/19/2025");
-  const pe=prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEndISO) : "12/18/2026");
-  const planStartISO=usToISO(ps||"");
-  const planEndISO=usToISO(pe||"");
-  if(!planStartISO || !planEndISO) return alert("Plan dates must be MM/DD/YYYY");
-
-  const workLocation=prompt("Work Location:", existing?.workLocation || "") || "";
-
-  const tasksRaw=prompt("Tasks (one per line):", (existing?.tasks || DEFAULT_TASKS).join("\n")) || "";
-  const tasks=tasksRaw.split("\n").map(s=>s.trim()).filter(Boolean);
-
-  const goalsRaw=prompt("Goals (one per line):", (existing?.goals || DEFAULT_GOALS).join("\n")) || "";
-  const goals=goalsRaw.split("\n").map(s=>s.trim()).filter(Boolean);
-
-  const payload={
-    id: existing?.id || ("client_" + Math.random().toString(16).slice(2)),
-    name,
-    planStartISO, planEndISO,
-    workLocation,
-    tasks: tasks.length ? tasks : DEFAULT_TASKS.slice(),
-    goals: goals.length ? goals : DEFAULT_GOALS.slice()
-  };
-
-  if(existing){
-    const idx=clients.findIndex(c=>c.id===existing.id);
-    clients[idx]=payload;
-    saveClients(clients);
-    renderClientSelect(existing.id);
-    onClientChange();
-    return;
-  }
-
-  clients.push(payload);
-  saveClients(clients);
-  renderClientSelect(payload.id);
-  onClientChange();
-}
-
-E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
-E.editClientBtn.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; addOrUpdateClient(cid); });
-E.demoBtn.addEventListener("click", ()=>{
-  saveClients([{
-    id:"client_1",
-    name:"Test Client A",
-    planStartISO:"2025-12-19",
-    planEndISO:"2026-12-18",
-    workLocation:"Albertsons",
-    tasks: DEFAULT_TASKS,
-    goals: DEFAULT_GOALS
-  }]);
-  renderClientSelect("client_1");
-  onClientChange();
-});
-
 E.wipeAll.addEventListener("click", ()=>{
   if(!confirm("Wipe ALL local data on this device?")) return;
-  localStorage.removeItem(CLIENTS_KEY);
   Object.keys(localStorage).forEach(k=>{
     if(k.startsWith(STORAGE_KEY_BASE+":")) localStorage.removeItem(k);
   });
@@ -1204,22 +1194,262 @@ E.specFinal.addEventListener("click", ()=>{
   finalizeSpecSignature();
 });
 
+/* ---------- SUPABASE: clients ---------- */
+function renderClientSelect(selectedId=null) {
+  E.clientSelect.innerHTML = "";
+  if (!clientsCache.length) {
+    const opt = document.createElement("option");
+    opt.value=""; opt.textContent="No clients loaded";
+    E.clientSelect.appendChild(opt);
+    return;
+  }
+  clientsCache.forEach(c => {
+    const opt=document.createElement("option");
+    opt.value=c.id; opt.textContent=c.display_name;
+    E.clientSelect.appendChild(opt);
+  });
+  const target = selectedId || clientsCache[0].id;
+  E.clientSelect.value = target;
+}
+
+async function loadClients(selectedId=null){
+  setSaveState("Loading clients…","warn");
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, display_name, plan_start, plan_end, work_location")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    setSaveState("Client load failed","bad");
+    alert("Supabase clients load error: " + error.message);
+    return;
+  }
+  clientsCache = data || [];
+  renderClientSelect(selectedId);
+  onClientChange();
+  setSaveState("Clients loaded","good");
+}
+
+async function addClient(){
+  const name = prompt("Client name:");
+  if(!name) return;
+
+  const ps = prompt("Plan Start (MM/DD/YYYY):", "12/19/2025") || "";
+  const pe = prompt("Plan End (MM/DD/YYYY):", "12/18/2026") || "";
+  const plan_start = usToISO(ps);
+  const plan_end   = usToISO(pe);
+  if(!plan_start || !plan_end) return alert("Plan dates must be MM/DD/YYYY");
+
+  const work_location = prompt("Work Location:", "") || "";
+
+  const { data, error } = await supabase
+    .from("clients")
+    .insert([{ display_name: name, plan_start, plan_end, work_location }])
+    .select("id, display_name, plan_start, plan_end, work_location")
+    .single();
+
+  if(error) return alert("Supabase add client error: " + error.message);
+
+  clientsCache.push(data);
+  clientsCache.sort((a,b)=> (a.display_name||"").localeCompare(b.display_name||""));
+  renderClientSelect(data.id);
+  onClientChange();
+}
+
+async function editClient(){
+  const cid = currentClientId();
+  const c = getClientById(cid);
+  if(!c) return;
+
+  const name = prompt("Client name:", c.display_name || "");
+  if(!name) return;
+
+  const ps = prompt("Plan Start (MM/DD/YYYY):", c.plan_start ? isoToUS(String(c.plan_start)) : "") || "";
+  const pe = prompt("Plan End (MM/DD/YYYY):", c.plan_end ? isoToUS(String(c.plan_end)) : "") || "";
+  const plan_start = usToISO(ps);
+  const plan_end   = usToISO(pe);
+  if(!plan_start || !plan_end) return alert("Plan dates must be MM/DD/YYYY");
+
+  const work_location = prompt("Work Location:", c.work_location || "") || "";
+
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ display_name: name, plan_start, plan_end, work_location })
+    .eq("id", cid)
+    .select("id, display_name, plan_start, plan_end, work_location")
+    .single();
+
+  if(error) return alert("Supabase edit client error: " + error.message);
+
+  clientsCache = clientsCache.map(x => x.id===cid ? data : x);
+  clientsCache.sort((a,b)=> (a.display_name||"").localeCompare(b.display_name||""));
+  renderClientSelect(cid);
+  onClientChange();
+}
+
+E.addClientBtn.addEventListener("click", addClient);
+E.editClientBtn.addEventListener("click", editClient);
+E.reloadClientsBtn.addEventListener("click", ()=>loadClients(currentClientId()));
+
+/* ---------- SUPABASE: submit ---------- */
+function dataUrlToBlob(dataUrl){
+  const parts = (dataUrl||"").split(",");
+  if(parts.length < 2) return null;
+  const mime = (parts[0].match(/data:(.*?);base64/)||[])[1] || "image/png";
+  const bin = atob(parts[1]);
+  const len = bin.length;
+  const arr = new Uint8Array(len);
+  for(let i=0;i<len;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function safeFilePart(s){
+  return String(s||"").trim().replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,50) || "x";
+}
+
+async function uploadSignature(kind, dataUrl){
+  if(!currentUser) throw new Error("Not signed in");
+  const blob = dataUrlToBlob(dataUrl);
+  if(!blob) return "";
+
+  const cid = currentClientId();
+  const c = getClientById(cid);
+  const clientPart = safeFilePart(c?.display_name || "client");
+  const ts = new Date().toISOString().replace(/[:.]/g,"-");
+  const path = `${currentUser.id}/${clientPart}_${kind}_${ts}.png`;
+
+  const { error } = await supabase
+    .storage
+    .from("signatures")
+    .upload(path, blob, { contentType: "image/png", upsert: false });
+
+  if(error) throw new Error(`Signature upload (${kind}) failed: ${error.message}`);
+  return path;
+}
+
+async function submitToSupabase(){
+  if(!currentUser) return alert("Please log in first.");
+
+  const v = validateRequiredForSigning();
+  if(!v.ok) return;
+
+  setSaveState("Submitting…","warn");
+
+  // Commit latest strokes to dataUrl
+  sigPads.client.commit();
+  sigPads.coach.commit();
+  sigPads.spec.commit();
+
+  const snap = snapshot();
+
+  // Upload signatures (only if present)
+  let clientSigPath = "";
+  let coachSigPath = "";
+  let specSigPath = "";
+
+  try {
+    if (snap.sigs?.client?.dataUrl) clientSigPath = await uploadSignature("client", snap.sigs.client.dataUrl);
+    if (snap.sigs?.coach?.dataUrl)  coachSigPath  = await uploadSignature("coach",  snap.sigs.coach.dataUrl);
+    if (snap.sigs?.spec?.dataUrl)   specSigPath   = await uploadSignature("spec",   snap.sigs.spec.dataUrl);
+
+    // Store a lighter JSON (don’t shove base64 images into your DB)
+    const snapForDb = structuredClone(snap);
+    if (snapForDb.sigs?.client) snapForDb.sigs.client.dataUrl = "";
+    if (snapForDb.sigs?.coach)  snapForDb.sigs.coach.dataUrl  = "";
+    if (snapForDb.sigs?.spec)   snapForDb.sigs.spec.dataUrl   = "";
+
+    const payload = {
+      client_id: snap.clientId,
+      coach_user_id: currentUser.id,
+      data: snapForDb,
+      client_signature_path: clientSigPath || null,
+      coach_signature_path: coachSigPath || null,
+      spec_signature_path: specSigPath || null
+    };
+
+    const { error } = await supabase.from("ta_records").insert([payload]);
+
+    if(error) throw new Error(error.message);
+
+    setSaveState("Submitted to Supabase","good");
+    alert("Submitted to Supabase successfully.");
+  } catch (err) {
+    console.error(err);
+    setSaveState("Submit failed","bad");
+    alert("Submit failed: " + (err?.message || err));
+  }
+}
+
+E.submitSupabase.addEventListener("click", submitToSupabase);
+
+/* ---------- AUTH ---------- */
+function showAuthError(msg){
+  E.authErrorText.textContent = msg;
+  E.authErrorBox.style.display = "block";
+}
+
+function clearAuthError(){
+  E.authErrorText.textContent = "";
+  E.authErrorBox.style.display = "none";
+}
+
+async function refreshSession(){
+  const { data } = await supabase.auth.getSession();
+  currentUser = data?.session?.user || null;
+
+  if(currentUser){
+    E.authStatus.textContent = "Signed in";
+    E.authStatus.className = "pill good";
+    E.loginBtn.style.display = "none";
+    E.logoutBtn.style.display = "inline-block";
+    E.authCard.style.display = "none";
+    E.appCard.style.display = "block";
+    E.userPill.textContent = `User: ${currentUser.email || currentUser.id}`;
+    await loadClients();
+  } else {
+    E.authStatus.textContent = "Not signed in";
+    E.authStatus.className = "pill bad";
+    E.loginBtn.style.display = "inline-block";
+    E.logoutBtn.style.display = "none";
+    E.authCard.style.display = "block";
+    E.appCard.style.display = "none";
+    E.userPill.textContent = "User: —";
+  }
+}
+
+E.loginBtn.addEventListener("click", async ()=>{
+  clearAuthError();
+  const email = (E.authEmail.value || "").trim();
+  const password = (E.authPass.value || "").trim();
+  if(!email || !password) return showAuthError("Email and password required.");
+
+  E.authStatus.textContent = "Signing in…";
+  E.authStatus.className = "pill warn";
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){
+    E.authStatus.textContent = "Not signed in";
+    E.authStatus.className = "pill bad";
+    return showAuthError(error.message);
+  }
+  await refreshSession();
+});
+
+E.logoutBtn.addEventListener("click", async ()=>{
+  await supabase.auth.signOut();
+  await refreshSession();
+});
+
+supabase.auth.onAuthStateChange(async () => {
+  await refreshSession();
+});
+
 /* ---------- init ---------- */
 (function init(){
-  renderClientSelect();
-  const clients=getClients();
-
-  if(clients.length){
-    renderClientSelect(clients[0].id);
-    onClientChange();
-    setSaveState("Ready","good");
-  } else {
-    E.entryDateUS.value=todayUS();
-    setSaveState("No clients loaded","bad");
-    updateLockUI();
-  }
-  syncSigBadges();
+  E.entryDateUS.value = todayUS();
   updateLockUI();
+  syncSigBadges();
+  refreshSession();
 })();
 </script>
 </body>
