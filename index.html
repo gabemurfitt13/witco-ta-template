@@ -2,1138 +2,517 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Supported Employment Data Sheet (Web Form)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Electronic Task Analysis (TA)</title>
   <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    body { margin: 0; background: #f6f7fb; color: #111; }
-    .wrap { max-width: 1100px; margin: 16px auto; padding: 12px; }
-    .card { background: #fff; border: 1px solid #e6e8f0; border-radius: 12px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
-
-    h1 { margin: 0 0 6px; font-size: 18px; }
-    .sub { color: #555; font-size: 12px; margin-bottom: 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .pill { display:inline-block; padding:5px 9px; border-radius:999px; background:#f1f3ff; color:#223; font-size:12px; border:1px solid #e0e5ff; }
-    .pill.state { background:#fff; border-color:#e6e8f0; color:#333; }
-    .pill.state.final { background:#fff1f1; border-color:#ffd4d4; color:#6b1010; }
-    .pill.state.locked { background:#fff7ed; border-color:#fed7aa; color:#7c2d12; }
-    .pill.state.unlocked { background:#effcf3; border-color:#ccefd9; color:#0f4d24; }
-
-    .grid { display:grid; grid-template-columns: repeat(12, 1fr); gap:10px; }
-    .col-12 { grid-column: span 12; }
-    .col-6  { grid-column: span 6; }
-    .col-4  { grid-column: span 4; }
-    .col-3  { grid-column: span 3; }
-    .col-2  { grid-column: span 2; }
-
-    label { display:block; font-size:11px; color:#444; margin-bottom:5px; }
-    input, textarea, select {
-      width:100%; box-sizing:border-box; padding:8px 9px;
-      border:1px solid #d7dbea; border-radius:10px; background:#fff;
-      font-size:13px;
+    :root{
+      --ink:#111827;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --card:#ffffff;
+      --bg:#f8fafc;
+      --accent:#7a0019; /* subtle maroon */
+      --radius:14px;
+      --shadow: 0 10px 24px rgba(0,0,0,.08);
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
-    textarea { min-height:54px; resize:none; overflow:hidden; }
-    .tight textarea { min-height:38px; }
-
-    .rowhead { display:flex; align-items:baseline; justify-content:space-between; margin:12px 0 6px; gap:10px; }
-    .rowhead h2 { margin:0; font-size:14px; }
-    .hint { font-size:11px; color:#666; line-height:1.25; }
-
-    table { width:100%; border-collapse:collapse; }
-    th, td { border-top:1px solid #eef0f6; padding:6px 6px; vertical-align:top; }
-    th { text-align:left; font-size:11px; color:#555; background:#fafbff; }
-
-    .mono { font-variant-numeric: tabular-nums; }
-
-    .btnbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    button {
-      border:1px solid #d7dbea; background:#111; color:#fff;
-      padding:8px 10px; border-radius:10px; cursor:pointer; font-size:13px;
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--font); color:var(--ink); background:var(--bg);
+      padding:22px;
     }
-    button.secondary { background:#fff; color:#111; }
-    button.danger { background:#b42318; border-color:#b42318; }
-    button.warn { background:#a15c00; border-color:#a15c00; color:#fff; }
-    button.ok { background:#0f5132; border-color:#0f5132; color:#fff; }
-    .tiny { font-size:12px; padding:6px 8px; border-radius:9px; }
-    button:disabled { opacity:.45; cursor:not-allowed; }
+    .wrap{max-width:1000px;margin:0 auto}
+    header{
+      display:flex; gap:16px; align-items:flex-start; justify-content:space-between;
+      margin-bottom:16px;
+    }
+    .brand{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .brand h1{
+      margin:0; font-size:20px; letter-spacing:.2px;
+    }
+    .brand .sub{
+      color:var(--muted); font-size:13px;
+    }
+    .actions{display:flex; gap:10px; flex-wrap:wrap}
+    button{
+      border:1px solid var(--line);
+      background:var(--card);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.primary{
+      border-color:transparent;
+      background:var(--accent);
+      color:#fff;
+    }
+    button:active{transform:translateY(1px)}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+      margin-bottom:14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:12px;
+    }
+    .field{display:flex; flex-direction:column; gap:6px}
+    label{font-size:12px; color:var(--muted); font-weight:700; letter-spacing:.2px}
+    input, textarea, select{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 11px;
+      font:inherit;
+      background:#fff;
+      outline:none;
+    }
+    textarea{min-height:90px; resize:vertical}
+    .span-3{grid-column:span 3}
+    .span-4{grid-column:span 4}
+    .span-5{grid-column:span 5}
+    .span-6{grid-column:span 6}
+    .span-7{grid-column:span 7}
+    .span-8{grid-column:span 8}
+    .span-9{grid-column:span 9}
+    .span-12{grid-column:span 12}
 
-    .sigbox { border:1px solid #d7dbea; border-radius:12px; padding:10px; background:#fff; }
-    .sigcanvas {
-      width:100%;
-      height:160px;
-      border:1px dashed #cfd6ee;
-      border-radius:10px;
-      touch-action:none;
-      display:block;
-      background: linear-gradient(to bottom, transparent 0 78%, rgba(0,0,0,.08) 78% 79%, transparent 79% 100%);
+    .divider{
+      height:1px; background:linear-gradient(to right, transparent, var(--line), transparent);
+      margin:14px 0;
     }
 
-    .banner {
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid #e6e8f0;
-      background:#fafbff;
+    table{width:100%; border-collapse:separate; border-spacing:0}
+    th, td{
+      border:1px solid var(--line);
+      padding:10px;
+      vertical-align:top;
+      background:#fff;
+    }
+    th{
+      background:#fafafa;
       font-size:12px;
-      color:#333;
-      margin-bottom:10px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+    table tr:first-child th:first-child{border-top-left-radius:12px}
+    table tr:first-child th:last-child{border-top-right-radius:12px}
+    table tr:last-child td:first-child{border-bottom-left-radius:12px}
+    table tr:last-child td:last-child{border-bottom-right-radius:12px}
+    .mini{
+      font-size:12px; color:var(--muted);
+    }
+    .row-actions{
+      display:flex; gap:10px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;
     }
 
-    .footer { margin-top:10px; font-size:11px; color:#666; }
+    /* signature */
+    .sig-wrap{
+      display:grid; gap:10px;
+      grid-template-columns: 1fr;
+    }
+    .sig-box{
+      border:1px dashed #cfd6ee;
+      border-radius:12px;
+      background:
+        linear-gradient(to bottom, transparent 0 78%, rgba(0,0,0,.08) 78% 79%, transparent 79% 100%);
+      height:170px;
+      touch-action:none;
+      position:relative;
+      overflow:hidden;
+    }
+    canvas{width:100%; height:100%}
+    .sig-meta{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:12px;
+      align-items:end;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px;
+      background:#f3f4f6; color:#374151;
+      font-size:12px; font-weight:700;
+      border:1px solid var(--line);
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+    footer{
+      text-align:center; color:var(--muted); font-size:12px; padding:10px 0 0;
+    }
 
-    @media print {
-      body { background:#fff; }
-      .wrap { margin:0; padding:0; }
-      .card { box-shadow:none; border:none; border-radius:0; padding:0; }
-      .btnbar, .footer, .manageRow, #modalOverlay { display:none !important; }
-      input, textarea, select { border:1px solid #bbb; }
-      th { background:#eee !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      textarea { min-height:32px; }
-      .hint { font-size:10px; }
-      canvas { border:1px solid #999 !important; }
+    /* print */
+    @media print{
+      body{background:#fff; padding:0}
+      .actions{display:none !important}
+      .card{box-shadow:none}
+      input, textarea, select{border:1px solid #d1d5db}
+      .sig-box{border:1px solid #d1d5db}
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
-      <div class="sub">
-        Mobile-friendly. Saves locally per client on this device.
-        <span class="pill" id="saveState">Ready</span>
-        <span class="pill state unlocked" id="workflowStatePill">DRAFT</span>
+    <header>
+      <div class="brand">
+        <h1>Electronic Task Analysis (TA)</h1>
+        <div class="sub">Fill it out, capture signature, then print/save as PDF. Humans love paperwork.</div>
       </div>
+      <div class="actions">
+        <button type="button" id="btnAddRow">+ Add Step</button>
+        <button type="button" id="btnClearSig">Clear Signature</button>
+        <button type="button" id="btnSave">Save Draft</button>
+        <button type="button" class="primary" id="btnPrint">Print / Save PDF</button>
+      </div>
+    </header>
 
-      <div class="banner" id="stateBanner" style="display:none;"></div>
-
+    <section class="card">
       <div class="grid">
-        <div class="col-6">
-          <label>Client</label>
-          <select id="clientSelect"></select>
-          <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="secondary tiny" id="manageClients" type="button">Add Client</button>
-            <button class="secondary tiny" id="editClient" type="button">Edit Client</button>
-            <button class="secondary tiny" id="addDemoClients" type="button">Load Demo Clients</button>
-          </div>
+        <div class="field span-4">
+          <label>Client Name</label>
+          <input id="clientName" placeholder="Client" />
         </div>
-
-        <div class="col-3">
-          <label>Plan Start (locked)</label>
-          <input id="planStart" type="date" readonly />
+        <div class="field span-4">
+          <label>Coach Name</label>
+          <input id="coachName" placeholder="Job Coach" />
         </div>
-        <div class="col-3">
-          <label>Plan End (locked)</label>
-          <input id="planEnd" type="date" readonly />
-        </div>
-
-        <div class="col-4">
-          <label>Work Location</label>
-          <input id="workLocation" placeholder="e.g., Albertsons" />
-        </div>
-        <div class="col-4">
+        <div class="field span-4">
           <label>Date</label>
-          <input id="entryDate" type="date" />
-        </div>
-        <div class="col-2">
-          <label>Time In</label>
-          <input id="timeIn" type="time" class="mono" />
-        </div>
-        <div class="col-2">
-          <label>Time Out</label>
-          <input id="timeOut" type="time" class="mono" />
+          <input id="serviceDate" type="date" />
         </div>
 
-        <div class="col-12">
-          <label>Total Time (auto, quarter-hours)</label>
-          <input id="totalTime" readonly />
+        <div class="field span-6">
+          <label>Employer / Site</label>
+          <input id="site" placeholder="Employer / Location" />
+        </div>
+        <div class="field span-3">
+          <label>Shift Start</label>
+          <input id="startTime" type="time" />
+        </div>
+        <div class="field span-3">
+          <label>Shift End</label>
+          <input id="endTime" type="time" />
+        </div>
+
+        <div class="field span-12">
+          <label>Job / Task Being Analyzed</label>
+          <input id="jobTask" placeholder="e.g., Stocking shelves, booth setup, dish room, etc." />
         </div>
       </div>
 
-      <div class="rowhead">
-        <h2>Prompt Codes</h2>
-        <div class="hint">I = Independent · IR = Indirect Reminder · VI = Verbal Instruction · M = Model/Demo · P = Physical · R = Refusal</div>
-      </div>
+      <div class="divider"></div>
 
-      <div class="rowhead">
-        <h2>Duties and Tasks (compact)</h2>
-        <div class="btnbar">
-          <button class="secondary tiny" id="addTask" type="button">Add Task</button>
-          <button class="secondary tiny" id="editTasks" type="button">Edit Tasks</button>
-        </div>
+      <div class="mini">
+        Use the table to break the task into steps. Keep it observable and concrete (no mind-reading).
       </div>
+    </section>
 
-      <table class="tight">
+    <section class="card">
+      <table id="taTable">
         <thead>
           <tr>
-            <th style="width: 36%;">Task</th>
-            <th style="width: 14%;">Support</th>
-            <th>Note (short)</th>
-            <th style="width: 70px;">Remove</th>
+            <th style="width:70px;">Step #</th>
+            <th>Task Step (what the client does)</th>
+            <th style="width:220px;">Supports / Prompts (if needed)</th>
+            <th style="width:220px;">Notes / Quality Criteria</th>
+            <th style="width:70px;">Del</th>
           </tr>
         </thead>
-        <tbody id="tasksBody"></tbody>
+        <tbody id="taBody">
+          <!-- rows injected -->
+        </tbody>
       </table>
 
-      <div class="rowhead">
-        <h2>Goals (full text visible)</h2>
-        <div class="btnbar">
-          <button class="secondary tiny" id="addGoal" type="button">Add Goal</button>
-          <button class="secondary tiny" id="editGoals" type="button">Edit Goals</button>
-        </div>
+      <div class="row-actions">
+        <span class="pill"><span class="dot"></span> Keep it simple, keep it defensible</span>
       </div>
+    </section>
 
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 44%;">Goal (full text)</th>
-            <th style="width: 22%;">Prompts (code + count)</th>
-            <th>Anecdotal Record</th>
-            <th style="width: 70px;">Remove</th>
-          </tr>
-        </thead>
-        <tbody id="goalsBody"></tbody>
-      </table>
-
-      <div class="rowhead">
-        <h2>Additional Notes</h2>
-      </div>
-      <textarea id="additionalNotes" placeholder="Scheduling changes, job highlights, employment needs, etc."></textarea>
-
-      <div class="rowhead">
-        <h2>Signatures Workflow</h2>
-        <div class="hint">Client signs → lock. PIN only unlocks for edits. Coach can sign without PIN. Specialist final sign-off → FINAL lock.</div>
-      </div>
-
+    <section class="card">
       <div class="grid">
-        <!-- Client signature -->
-        <div class="col-6">
-          <div class="sigbox">
-            <div class="rowhead" style="margin:0 0 8px;">
-              <h2 style="font-size:13px;">Client Signature</h2>
-            </div>
-            <label>Client Name (printed)</label>
-            <input id="clientSigName" placeholder="Client name (printed)" />
-            <label style="margin-top:8px;">Signed Date/Time (auto)</label>
-            <input id="clientSigWhen" readonly />
-            <label style="margin-top:8px;">Signature</label>
-            <canvas id="clientSigPad" class="sigcanvas"></canvas>
-            <div class="btnbar" style="margin-top:8px;">
-              <button class="secondary tiny" id="clientSigClear" type="button">Clear</button>
-              <button class="warn tiny" id="lockAfterClient" type="button">Lock After Client Signs</button>
-            </div>
-          </div>
+        <div class="field span-12">
+          <label>Session Notes</label>
+          <textarea id="notes" placeholder="What happened? What worked? What changed? Anything relevant."></textarea>
         </div>
+      </div>
+    </section>
 
-        <!-- Unlock (NOT a signature) -->
-        <div class="col-6">
-          <div class="sigbox">
-            <div class="rowhead" style="margin:0 0 8px;">
-              <h2 style="font-size:13px;">Unlock for Edits (PIN)</h2>
+    <section class="card">
+      <div class="grid">
+        <div class="field span-12">
+          <label>Client Signature</label>
+          <div class="sig-wrap">
+            <div class="sig-box">
+              <canvas id="sigCanvas"></canvas>
             </div>
-            <label>Specialist Name</label>
-            <input id="specUnlockName" placeholder="Specialist name" />
-            <label style="margin-top:8px;">PIN</label>
-            <input id="specUnlockPin" type="password" inputmode="numeric" placeholder="PIN" />
-            <label style="margin-top:8px;">Unlocked Date/Time (auto)</label>
-            <input id="specUnlockWhen" readonly />
-            <div class="btnbar" style="margin-top:10px;">
-              <button class="ok tiny" id="unlockForCorrection" type="button">Unlock for Corrections</button>
-              <button class="warn tiny" id="relockAfterEdits" type="button">Re-Lock After Edits</button>
+            <div class="sig-meta">
+              <div class="field span-6">
+                <label>Signature Name (typed)</label>
+                <input id="sigName" placeholder="Type name (optional)" />
+              </div>
+              <div class="field span-6">
+                <label>Device / Method (optional)</label>
+                <input id="sigMethod" placeholder="Mouse / touch / stylus" />
+              </div>
             </div>
-            <div class="hint" style="margin-top:6px;">PIN is only used to unlock. Coach signing is never blocked by PIN.</div>
-          </div>
-        </div>
-
-        <!-- Coach signature -->
-        <div class="col-6">
-          <div class="sigbox">
-            <div class="rowhead" style="margin:0 0 8px;">
-              <h2 style="font-size:13px;">Coach Signature</h2>
-            </div>
-            <label>Coach Name (printed)</label>
-            <input id="coachSigName" placeholder="Coach name (printed)" />
-            <label style="margin-top:8px;">Signed Date/Time (auto)</label>
-            <input id="coachSigWhen" readonly />
-            <label style="margin-top:8px;">Signature</label>
-            <canvas id="coachSigPad" class="sigcanvas"></canvas>
-            <div class="btnbar" style="margin-top:8px;">
-              <button class="secondary tiny" id="coachSigClear" type="button">Clear</button>
-              <button class="warn tiny" id="lockAfterCoach" type="button">Lock After Coach Signs</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Specialist final sign-off signature -->
-        <div class="col-6">
-          <div class="sigbox">
-            <div class="rowhead" style="margin:0 0 8px;">
-              <h2 style="font-size:13px;">Specialist Final Sign-Off</h2>
-            </div>
-            <label>Specialist Name (printed)</label>
-            <input id="specFinalName" placeholder="Specialist name (printed)" />
-            <label style="margin-top:8px;">Signed Date/Time (auto)</label>
-            <input id="specFinalWhen" readonly />
-            <label style="margin-top:8px;">Signature</label>
-            <canvas id="specFinalPad" class="sigcanvas"></canvas>
-            <div class="btnbar" style="margin-top:8px;">
-              <button class="secondary tiny" id="specFinalClear" type="button">Clear</button>
-              <button class="danger tiny" id="finalizeEntry" type="button">Finalize (Lock Forever)</button>
+            <div class="mini">
+              Tip: If you need this to look “more official,” you can also print it and have them sign with ink. Paper never crashes.
             </div>
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="btnbar" style="margin-top:10px;">
-        <button id="saveNow" type="button">Save</button>
-        <button class="secondary" id="exportJson" type="button">Export JSON</button>
-        <button class="secondary" id="importJson" type="button">Import JSON</button>
-        <button class="secondary" id="printPage" type="button">Print / Save as PDF</button>
-        <button class="danger" id="wipeAll" type="button">Wipe Local Data (this device)</button>
-      </div>
-
-      <div class="footer">
-        Local storage: clearing browser data nukes saved forms on that device.
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal -->
-  <div id="modalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); padding:18px; z-index:9999;">
-    <div style="max-width:900px; margin:0 auto; background:#fff; border-radius:12px; padding:12px; border:1px solid #e6e8f0;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <h2 id="modalTitle" style="margin:0; font-size:16px;">Edit</h2>
-        <button id="modalClose" class="secondary" type="button">Close</button>
-      </div>
-      <div id="modalBody" style="margin-top:10px;"></div>
-      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
-        <button id="modalCancel" class="secondary" type="button">Cancel</button>
-        <button id="modalSave" type="button">Save Changes</button>
-      </div>
-    </div>
+    <footer>
+      Drafts save to this browser only (localStorage). Printing uses your browser’s PDF save.
+    </footer>
   </div>
 
 <script>
-  const DEFAULT_TASKS = [
-    "Clock in & out",
-    "Bag groceries for customers",
-    'Return "go-backs" to the appropriate shelves',
-    "Get carts from parking lot",
-    "Cleaning tasks as assigned by management"
-  ];
+  // ---------- TA table ----------
+  const taBody = document.getElementById('taBody');
 
-  const DEFAULT_GOALS = [
-    "1. When the client stops at customer service to get water, they will independently redirect back to work tasks within 1 minute, 50% of the time for 3 consecutive months.",
-    "2. Client will independently put quality into work when retrieving carts by organizing them in the cart corral based on type and/or size, 90% of the time for 3 consecutive months.",
-    "3. When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
-  ];
-
-  const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-  const CLIENTS_KEY = "witco_clients_v1";
-  const STORAGE_KEY_BASE = "witco_supported_employment_form_v11";
-
-  // This is a cheap gate, not real security.
-  const SPECIALIST_UNLOCK_PIN = "1234";
-
-  const STATE = {
-    DRAFT: "DRAFT",
-    CLIENT_LOCKED: "CLIENT_LOCKED",
-    UNLOCKED_CORRECTION: "UNLOCKED_CORRECTION",
-    COACH_LOCKED: "COACH_LOCKED",
-    FINAL: "FINAL"
-  };
-
-  const el = (id) => document.getElementById(id);
-  function setSaveState(text) { el("saveState").textContent = text; }
-  function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
-
-  function getClients() {
-    try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); }
-    catch { return []; }
+  function makeCellInput(placeholder){
+    const inp = document.createElement('input');
+    inp.placeholder = placeholder;
+    inp.addEventListener('input', autoSaveLight);
+    return inp;
   }
-  function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
-  function getClientById(id) { return getClients().find(c => c.id === id); }
-  function currentClientId() { return el("clientSelect").value || ""; }
 
-  function renderClientSelect(selectedId = null) {
-    const clients = getClients();
-    el("clientSelect").innerHTML = "";
-    if (!clients.length) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "No clients loaded";
-      el("clientSelect").appendChild(opt);
-      return;
-    }
-    clients.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.name;
-      el("clientSelect").appendChild(opt);
+  function makeCellTextarea(placeholder){
+    const ta = document.createElement('textarea');
+    ta.placeholder = placeholder;
+    ta.style.minHeight = '44px';
+    ta.addEventListener('input', autoSaveLight);
+    return ta;
+  }
+
+  function addRow(stepNum=null, stepVal="", supportVal="", notesVal=""){
+    const tr = document.createElement('tr');
+
+    const tdNum = document.createElement('td');
+    tdNum.style.textAlign = 'center';
+    tdNum.style.fontWeight = '800';
+    tdNum.textContent = stepNum ?? (taBody.children.length + 1);
+
+    const tdStep = document.createElement('td');
+    const step = makeCellTextarea("Describe the step…");
+    step.value = stepVal;
+    tdStep.appendChild(step);
+
+    const tdSupport = document.createElement('td');
+    const support = makeCellTextarea("Prompts / supports…");
+    support.value = supportVal;
+    tdSupport.appendChild(support);
+
+    const tdNotes = document.createElement('td');
+    const n = makeCellTextarea("Quality criteria / notes…");
+    n.value = notesVal;
+    tdNotes.appendChild(n);
+
+    const tdDel = document.createElement('td');
+    tdDel.style.textAlign = 'center';
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.textContent = 'X';
+    delBtn.addEventListener('click', () => {
+      tr.remove();
+      renumberRows();
+      autoSaveLight();
     });
-    el("clientSelect").value = selectedId || clients[0].id;
+    tdDel.appendChild(delBtn);
+
+    tr.append(tdNum, tdStep, tdSupport, tdNotes, tdDel);
+    taBody.appendChild(tr);
+    renumberRows();
   }
 
-  function lockPlanDates(planStart, planEnd) {
-    el("planStart").value = planStart || "";
-    el("planEnd").value = planEnd || "";
-    el("planStart").disabled = true;
-    el("planEnd").disabled = true;
-  }
-
-  function minutesBetween(t1, t2) {
-    if (!t1 || !t2) return null;
-    const [h1,m1] = t1.split(":").map(Number);
-    const [h2,m2] = t2.split(":").map(Number);
-    if ([h1,m1,h2,m2].some(x => Number.isNaN(x))) return null;
-    let a = h1*60+m1, b = h2*60+m2;
-    if (b < a) b += 24*60;
-    return b - a;
-  }
-  function minutesToQuarterHours(minutes) {
-    if (minutes == null) return "";
-    const rounded = Math.round(minutes / 15) * 15;
-    return (rounded / 60).toFixed(2);
-  }
-  function recalcTotalTime() {
-    const mins = minutesBetween(el("timeIn").value, el("timeOut").value);
-    el("totalTime").value = minutesToQuarterHours(mins);
-  }
-
-  function makeSupportSelect(value="") {
-    const s = document.createElement("select");
-    SUPPORT_LEVELS.forEach(v => {
-      const o = document.createElement("option");
-      o.value = v; o.textContent = v || "(select)";
-      if (v === value) o.selected = true;
-      s.appendChild(o);
+  function renumberRows(){
+    [...taBody.children].forEach((tr, idx) => {
+      tr.children[0].textContent = idx + 1;
     });
-    return s;
   }
 
-  function makePromptEntry(entry = { code:"", count:1 }) {
-    const wrap = document.createElement("div");
-    wrap.className = "prompt-entry";
-    wrap.style.display = "flex";
-    wrap.style.gap = "6px";
-    wrap.style.alignItems = "center";
-    wrap.style.marginBottom = "6px";
+  document.getElementById('btnAddRow').addEventListener('click', () => addRow());
 
-    const sel = makeSupportSelect(entry.code || "");
-    sel.style.minWidth = "92px";
+  // Seed with a few rows
+  addRow(1);
+  addRow(2);
+  addRow(3);
 
-    const count = document.createElement("input");
-    count.type = "number";
-    count.min = "1";
-    count.step = "1";
-    count.value = Number(entry.count || 1);
-    count.style.width = "74px";
+  // ---------- Signature pad ----------
+  const canvas = document.getElementById('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  let last = {x:0, y:0};
 
-    const rm = document.createElement("button");
-    rm.type = "button";
-    rm.className = "secondary tiny";
-    rm.textContent = "X";
-    rm.addEventListener("click", () => { wrap.remove(); autosave(); });
+  function resizeCanvas(){
+    // match canvas pixels to element size for crisp drawing
+    const box = canvas.getBoundingClientRect();
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const data = canvas.toDataURL(); // keep existing signature when resizing
+    canvas.width = Math.floor(box.width * ratio);
+    canvas.height = Math.floor(box.height * ratio);
+    canvas.style.width = box.width + 'px';
+    canvas.style.height = box.height + 'px';
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-    [sel, count].forEach(node => {
-      node.addEventListener("change", autosave);
-      node.addEventListener("input", autosave);
-    });
-
-    wrap.appendChild(sel);
-    wrap.appendChild(count);
-    wrap.appendChild(rm);
-    return wrap;
+    // restore
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, box.width, box.height);
+    img.src = data;
   }
 
-  function readPromptEntries(container) {
-    const rows = [...container.querySelectorAll(".prompt-entry")];
-    return rows.map(r => {
-      const sel = r.querySelector("select");
-      const inp = r.querySelector("input[type='number']");
-      const code = (sel?.value || "").trim();
-      const count = Number(inp?.value || 0);
-      return { code, count };
-    }).filter(p => p.code && p.count > 0);
+  function pos(evt){
+    const rect = canvas.getBoundingClientRect();
+    const p = evt.touches ? evt.touches[0] : evt;
+    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
   }
 
-  function autosizeTA(ta) {
-    ta.style.height = "auto";
-    ta.style.height = (ta.scrollHeight) + "px";
+  function startDraw(evt){
+    drawing = true;
+    last = pos(evt);
+    evt.preventDefault();
   }
 
-  function addTaskRow(tbody, rowData) {
-    const tr = document.createElement("tr");
-
-    const tdTitle = document.createElement("td");
-    const titleInput = document.createElement("input");
-    titleInput.value = rowData.title || "";
-    titleInput.placeholder = "Task...";
-    tdTitle.appendChild(titleInput);
-
-    const tdSupport = document.createElement("td");
-    const supportSelect = makeSupportSelect(rowData.support || "");
-    tdSupport.appendChild(supportSelect);
-
-    const tdNote = document.createElement("td");
-    const noteInput = document.createElement("input");
-    noteInput.value = rowData.note || "";
-    noteInput.placeholder = "Short note...";
-    tdNote.appendChild(noteInput);
-
-    const tdRemove = document.createElement("td");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "secondary tiny";
-    btn.textContent = "X";
-    btn.addEventListener("click", () => { tr.remove(); autosave(); });
-    tdRemove.appendChild(btn);
-
-    tr.appendChild(tdTitle);
-    tr.appendChild(tdSupport);
-    tr.appendChild(tdNote);
-    tr.appendChild(tdRemove);
-
-    [titleInput, supportSelect, noteInput].forEach(node => {
-      node.addEventListener("input", autosave);
-      node.addEventListener("change", autosave);
-    });
-
-    tbody.appendChild(tr);
+  function draw(evt){
+    if(!drawing) return;
+    const p = pos(evt);
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#111827';
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
+    evt.preventDefault();
+    autoSaveLight();
   }
 
-  function addGoalRow(tbody, rowData) {
-    const tr = document.createElement("tr");
-
-    const tdGoal = document.createElement("td");
-    const goalTA = document.createElement("textarea");
-    goalTA.value = rowData.title || "";
-    goalTA.placeholder = "Goal (full text)...";
-    tdGoal.appendChild(goalTA);
-
-    const tdPrompts = document.createElement("td");
-    const promptsWrap = document.createElement("div");
-    promptsWrap.className = "prompts-wrap";
-    promptsWrap.style.display = "flex";
-    promptsWrap.style.flexDirection = "column";
-
-    const existingPrompts = Array.isArray(rowData.prompts) ? rowData.prompts : [];
-    if (existingPrompts.length) existingPrompts.forEach(p => promptsWrap.appendChild(makePromptEntry(p)));
-    else promptsWrap.appendChild(makePromptEntry({ code:"", count:1 }));
-
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "secondary tiny";
-    addBtn.textContent = "+ Prompt";
-    addBtn.style.marginTop = "4px";
-    addBtn.addEventListener("click", () => { promptsWrap.appendChild(makePromptEntry({ code:"", count:1 })); autosave(); });
-
-    tdPrompts.appendChild(promptsWrap);
-    tdPrompts.appendChild(addBtn);
-
-    const tdNote = document.createElement("td");
-    const noteTA = document.createElement("textarea");
-    noteTA.value = rowData.note || "";
-    noteTA.placeholder = "Anecdotal record...";
-    tdNote.appendChild(noteTA);
-
-    const tdRemove = document.createElement("td");
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "secondary tiny";
-    btn.textContent = "X";
-    btn.addEventListener("click", () => { tr.remove(); autosave(); });
-    tdRemove.appendChild(btn);
-
-    tr.appendChild(tdGoal);
-    tr.appendChild(tdPrompts);
-    tr.appendChild(tdNote);
-    tr.appendChild(tdRemove);
-
-    const resizeAll = () => { autosizeTA(goalTA); autosizeTA(noteTA); };
-    goalTA.addEventListener("input", () => { resizeAll(); autosave(); });
-    noteTA.addEventListener("input", () => { resizeAll(); autosave(); });
-
-    setTimeout(resizeAll, 0);
-    tbody.appendChild(tr);
+  function endDraw(){
+    drawing = false;
   }
 
-  function getTasks() {
-    const rows = [...el("tasksBody").querySelectorAll("tr")];
-    return rows.map(tr => {
-      const inputs = tr.querySelectorAll("input, select");
-      return { title: inputs[0].value.trim(), support: inputs[1].value, note: inputs[2].value.trim() };
-    }).filter(r => r.title || r.support || r.note);
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', draw);
+  window.addEventListener('mouseup', endDraw);
+
+  canvas.addEventListener('touchstart', startDraw, {passive:false});
+  canvas.addEventListener('touchmove', draw, {passive:false});
+  canvas.addEventListener('touchend', endDraw);
+
+  document.getElementById('btnClearSig').addEventListener('click', () => {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    autoSaveLight();
+  });
+
+  window.addEventListener('resize', resizeCanvas);
+  setTimeout(resizeCanvas, 50);
+
+  // ---------- Save / Load (localStorage) ----------
+  const KEY = "electronic_ta_draft_v1";
+
+  function collectRows(){
+    return [...taBody.children].map(tr => ({
+      step: tr.children[1].querySelector('textarea').value,
+      supports: tr.children[2].querySelector('textarea').value,
+      notes: tr.children[3].querySelector('textarea').value
+    }));
   }
 
-  function getGoals() {
-    const rows = [...el("goalsBody").querySelectorAll("tr")];
-    return rows.map(tr => {
-      const tas = tr.querySelectorAll("textarea");
-      const promptsWrap = tr.querySelector(".prompts-wrap");
-      const prompts = promptsWrap ? readPromptEntries(promptsWrap) : [];
-      return { title: tas[0].value.trim(), prompts, note: tas[1].value.trim() };
-    }).filter(r => r.title || (r.prompts && r.prompts.length) || r.note);
+  function fillRows(rows){
+    taBody.innerHTML = "";
+    rows.forEach((r, i) => addRow(i+1, r.step, r.supports, r.notes));
   }
 
-  function setTasks(data) { el("tasksBody").innerHTML = ""; (data||[]).forEach(d => addTaskRow(el("tasksBody"), d)); }
-  function setGoals(data) { el("goalsBody").innerHTML = ""; (data||[]).forEach(d => addGoalRow(el("goalsBody"), d)); }
-
-  function nowLocalString() {
-    const d = new Date();
-    return d.toLocaleString([], { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
-  }
-
-  function setupSignaturePad(canvasId, shouldAllowDrawFn, onEnd) {
-    const canvas = document.getElementById(canvasId);
-    const ctx = canvas.getContext("2d");
-
-    function sizeCanvasToDisplay() {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.strokeStyle = "#111";
-    }
-
-    setTimeout(sizeCanvasToDisplay, 0);
-    window.addEventListener("resize", () => sizeCanvasToDisplay());
-
-    let drawing = false;
-    let last = null;
-
-    function getPoint(e) {
-      const rect = canvas.getBoundingClientRect();
-      const touch = e.touches && e.touches[0];
-      const clientX = touch ? touch.clientX : e.clientX;
-      const clientY = touch ? touch.clientY : e.clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-
-    function start(e) {
-      if (!shouldAllowDrawFn()) return;
-      e.preventDefault();
-      drawing = true;
-      last = getPoint(e);
-    }
-
-    function move(e) {
-      if (!shouldAllowDrawFn()) return;
-      if (!drawing) return;
-      e.preventDefault();
-      const p = getPoint(e);
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      last = p;
-    }
-
-    function end(e) {
-      if (!shouldAllowDrawFn()) return;
-      if (!drawing) return;
-      e.preventDefault();
-      drawing = false;
-      last = null;
-      onEnd?.();
-    }
-
-    canvas.addEventListener("mousedown", start);
-    canvas.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", end);
-
-    canvas.addEventListener("touchstart", start, { passive:false });
-    canvas.addEventListener("touchmove", move, { passive:false });
-    canvas.addEventListener("touchend", end, { passive:false });
-
+  function getFormData(){
     return {
-      clear() {
-        const rect = canvas.getBoundingClientRect();
-        ctx.clearRect(0, 0, rect.width, rect.height);
-      },
-      toDataURL() { return canvas.toDataURL("image/png"); },
-      fromDataURL(dataUrl) {
-        if (!dataUrl) return;
-        const img = new Image();
-        img.onload = () => {
-          const rect = canvas.getBoundingClientRect();
-          ctx.clearRect(0, 0, rect.width, rect.height);
-          ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        };
-        img.src = dataUrl;
-      }
+      clientName: document.getElementById('clientName').value,
+      coachName: document.getElementById('coachName').value,
+      serviceDate: document.getElementById('serviceDate').value,
+      site: document.getElementById('site').value,
+      startTime: document.getElementById('startTime').value,
+      endTime: document.getElementById('endTime').value,
+      jobTask: document.getElementById('jobTask').value,
+      notes: document.getElementById('notes').value,
+      sigName: document.getElementById('sigName').value,
+      sigMethod: document.getElementById('sigMethod').value,
+      taRows: collectRows(),
+      sigDataUrl: canvas.toDataURL()
     };
   }
 
-  let clientSigPng = "", coachSigPng = "", specFinalPng = "";
-  let clientPad = null, coachPad = null, specFinalPad = null;
+  function setFormData(d){
+    document.getElementById('clientName').value = d.clientName || "";
+    document.getElementById('coachName').value = d.coachName || "";
+    document.getElementById('serviceDate').value = d.serviceDate || "";
+    document.getElementById('site').value = d.site || "";
+    document.getElementById('startTime').value = d.startTime || "";
+    document.getElementById('endTime').value = d.endTime || "";
+    document.getElementById('jobTask').value = d.jobTask || "";
+    document.getElementById('notes').value = d.notes || "";
+    document.getElementById('sigName').value = d.sigName || "";
+    document.getElementById('sigMethod').value = d.sigMethod || "";
+    if(Array.isArray(d.taRows) && d.taRows.length) fillRows(d.taRows);
 
-  let workflowState = STATE.DRAFT;
-  let audit = [];
-  function addAudit(action, who) { audit.push({ ts: new Date().toISOString(), action, who }); }
-
-  function setWorkflowState(newState, bannerText = "") {
-    workflowState = newState;
-
-    const pill = el("workflowStatePill");
-    pill.textContent = newState;
-    pill.classList.remove("final", "locked", "unlocked");
-    if (newState === STATE.FINAL) pill.classList.add("final");
-    else if (newState === STATE.DRAFT || newState === STATE.UNLOCKED_CORRECTION) pill.classList.add("unlocked");
-    else pill.classList.add("locked");
-
-    const banner = el("stateBanner");
-    if (bannerText) { banner.style.display = "block"; banner.innerHTML = bannerText; }
-    else { banner.style.display = "none"; banner.innerHTML = ""; }
-
-    applyUiRules();
-  }
-
-  function isEditableState() { return workflowState === STATE.DRAFT || workflowState === STATE.UNLOCKED_CORRECTION; }
-
-  function applyUiRules() {
-    const editable = isEditableState();
-    const final = workflowState === STATE.FINAL;
-
-    ["workLocation","entryDate","timeIn","timeOut","additionalNotes"].forEach(id => el(id).disabled = !editable);
-
-    document.querySelectorAll("#tasksBody input, #tasksBody select, #goalsBody textarea, #goalsBody select, #goalsBody input").forEach(n => {
-      n.disabled = !editable;
-    });
-
-    el("addTask").disabled = !editable;
-    el("addGoal").disabled = !editable;
-    el("editTasks").disabled = !editable;
-    el("editGoals").disabled = !editable;
-
-    el("manageClients").disabled = !editable;
-    el("editClient").disabled = !editable;
-    el("addDemoClients").disabled = !editable;
-
-    // Client can only sign in DRAFT
-    const clientCanSign = workflowState === STATE.DRAFT;
-    el("clientSigName").disabled = !clientCanSign;
-    el("clientSigClear").disabled = !clientCanSign;
-    el("lockAfterClient").disabled = !(clientSigPng && workflowState === STATE.DRAFT);
-
-    // Unlock allowed from locked states (not FINAL)
-    const canUnlock = (workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.COACH_LOCKED) && !final;
-    el("specUnlockName").disabled = !canUnlock;
-    el("specUnlockPin").disabled = !canUnlock;
-    el("unlockForCorrection").disabled = !canUnlock;
-
-    // Re-lock button available when currently unlocked and not final
-    el("relockAfterEdits").disabled = !(workflowState === STATE.UNLOCKED_CORRECTION && !final);
-
-    // ✅ Coach signing is NOT blocked by PIN.
-    // Coach can sign if client has signed and entry is not FINAL.
-    const coachCanSign = (workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.UNLOCKED_CORRECTION) && !final;
-    el("coachSigName").disabled = !coachCanSign;
-    el("coachSigClear").disabled = !coachCanSign;
-    el("lockAfterCoach").disabled = !(coachSigPng && coachCanSign);
-
-    // Specialist finalization requires coach locked and client+coach signatures
-    const canFinalize = workflowState === STATE.COACH_LOCKED && !final && !!clientSigPng && !!coachSigPng;
-    el("specFinalName").disabled = !canFinalize;
-    el("specFinalClear").disabled = !canFinalize;
-    el("finalizeEntry").disabled = !canFinalize;
-
-    document.querySelectorAll("#tasksBody button, #goalsBody button").forEach(b => {
-      if (b.textContent.trim() === "X" || b.textContent.trim() === "+ Prompt") b.disabled = !editable;
-    });
-  }
-
-  function snapshot() {
-    const cid = currentClientId();
-    const c = getClientById(cid);
-    return {
-      clientId: cid,
-      clientName: c?.name || "",
-      planStart: el("planStart").value,
-      planEnd: el("planEnd").value,
-      workLocation: el("workLocation").value,
-      entryDate: el("entryDate").value,
-      timeIn: el("timeIn").value,
-      timeOut: el("timeOut").value,
-      totalTime: el("totalTime").value,
-      tasks: getTasks(),
-      goals: getGoals(),
-      additionalNotes: el("additionalNotes").value,
-      workflow: { state: workflowState, audit },
-      unlock: { specialistName: el("specUnlockName").value, when: el("specUnlockWhen").value },
-      signatures: {
-        client: { printedName: el("clientSigName").value, signedWhen: el("clientSigWhen").value, png: clientSigPng },
-        coach: { printedName: el("coachSigName").value, signedWhen: el("coachSigWhen").value, png: coachSigPng },
-        specialistFinal: { printedName: el("specFinalName").value, signedWhen: el("specFinalWhen").value, png: specFinalPng }
-      }
-    };
-  }
-
-  function apply(data) {
-    el("workLocation").value = data.workLocation || "";
-    el("entryDate").value = data.entryDate || "";
-    el("timeIn").value = data.timeIn || "";
-    el("timeOut").value = data.timeOut || "";
-    recalcTotalTime();
-
-    setTasks(data.tasks || []);
-    setGoals(data.goals || []);
-    el("additionalNotes").value = data.additionalNotes || "";
-
-    audit = Array.isArray(data.workflow?.audit) ? data.workflow.audit : [];
-    workflowState = data.workflow?.state || STATE.DRAFT;
-
-    el("clientSigName").value = data.signatures?.client?.printedName || "";
-    el("clientSigWhen").value = data.signatures?.client?.signedWhen || "";
-    clientSigPng = data.signatures?.client?.png || ""; if (clientPad) clientPad.fromDataURL(clientSigPng);
-
-    el("coachSigName").value = data.signatures?.coach?.printedName || "";
-    el("coachSigWhen").value = data.signatures?.coach?.signedWhen || "";
-    coachSigPng = data.signatures?.coach?.png || ""; if (coachPad) coachPad.fromDataURL(coachSigPng);
-
-    el("specFinalName").value = data.signatures?.specialistFinal?.printedName || "";
-    el("specFinalWhen").value = data.signatures?.specialistFinal?.signedWhen || "";
-    specFinalPng = data.signatures?.specialistFinal?.png || ""; if (specFinalPad) specFinalPad.fromDataURL(specFinalPng);
-
-    el("specUnlockName").value = data.unlock?.specialistName || "";
-    el("specUnlockWhen").value = data.unlock?.when || "";
-    el("specUnlockPin").value = "";
-
-    setWorkflowState(workflowState);
-  }
-
-  let saveTimer = null;
-  function autosave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      const cid = currentClientId();
-      if (!cid) return;
-      localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-      setSaveState("Saved");
-      setTimeout(() => setSaveState("Saved (idle)"), 800);
-    }, 150);
-  }
-
-  function loadSavedForClient(clientId) {
-    const raw = localStorage.getItem(storageKeyFor(clientId));
-    if (!raw) return false;
-    try { apply(JSON.parse(raw)); return true; } catch { return false; }
-  }
-
-  function loadClientTemplate(client) {
-    lockPlanDates(client.planStart, client.planEnd);
-    el("workLocation").value = client.workLocation || "";
-    el("entryDate").value = new Date().toISOString().slice(0,10);
-    el("timeIn").value = "";
-    el("timeOut").value = "";
-    el("totalTime").value = "";
-    el("additionalNotes").value = "";
-
-    el("clientSigName").value = ""; el("clientSigWhen").value = ""; clientSigPng=""; if (clientPad) clientPad.clear();
-    el("coachSigName").value = ""; el("coachSigWhen").value=""; coachSigPng=""; if (coachPad) coachPad.clear();
-    el("specFinalName").value = ""; el("specFinalWhen").value=""; specFinalPng=""; if (specFinalPad) specFinalPad.clear();
-
-    el("specUnlockName").value = ""; el("specUnlockPin").value = ""; el("specUnlockWhen").value = "";
-
-    audit = [];
-    addAudit("TEMPLATE_LOADED", "system");
-
-    setTasks((client.tasks || DEFAULT_TASKS).map(t => ({ title:t, support:"", note:"" })));
-    setGoals((client.goals || DEFAULT_GOALS).map(g => ({ title:g, prompts:[{ code:"", count:1 }], note:"" })));
-    recalcTotalTime();
-    setWorkflowState(STATE.DRAFT, "");
-  }
-
-  function onClientChange() {
-    const cid = currentClientId();
-    const client = getClientById(cid);
-    if (!client) { setSaveState("No client selected"); return; }
-    lockPlanDates(client.planStart, client.planEnd);
-    const loaded = loadSavedForClient(cid);
-    if (!loaded) loadClientTemplate(client);
-    setSaveState(loaded ? "Loaded saved entry" : "Loaded template");
-  }
-
-  function download(filename, text) {
-    const blob = new Blob([text], { type:"application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function promptImport() {
-    const raw = prompt("Paste exported JSON:");
-    if (!raw) return;
-    try { apply(JSON.parse(raw)); autosave(); setSaveState("Imported"); }
-    catch { alert("Invalid JSON."); }
-  }
-
-  function openModal(title, bodyHtml, onSave) {
-    el("modalTitle").textContent = title;
-    el("modalBody").innerHTML = bodyHtml;
-    el("modalOverlay").style.display = "block";
-    const close = () => { el("modalOverlay").style.display = "none"; };
-    el("modalClose").onclick = close;
-    el("modalCancel").onclick = close;
-    el("modalSave").onclick = () => { onSave?.(); close(); };
-  }
-
-  function updateClient(clientId, patch) {
-    const clients = getClients();
-    const idx = clients.findIndex(c => c.id === clientId);
-    if (idx < 0) return;
-    clients[idx] = { ...clients[idx], ...patch };
-    saveClients(clients);
-  }
-
-  function addOrUpdateClient(existingId = null) {
-    const clients = getClients();
-    const existing = existingId ? getClientById(existingId) : null;
-
-    const name = prompt("Client name:", existing ? (existing.name || "") : "");
-    if (!name) return;
-
-    const planStart = prompt("Plan Start (YYYY-MM-DD):", existing ? (existing.planStart || "") : "2025-12-19") || "";
-    const planEnd   = prompt("Plan End (YYYY-MM-DD):", existing ? (existing.planEnd || "") : "2026-12-18") || "";
-    const workLocation = prompt("Work Location:", existing ? (existing.workLocation || "") : "") || "";
-
-    const tasksRaw = prompt("Paste tasks (one per line). Leave blank to use defaults:",
-      existing ? (existing.tasks || []).join("\n") : DEFAULT_TASKS.join("\n")) || "";
-    const tasks = tasksRaw.split("\n").map(s => s.trim()).filter(Boolean);
-    const finalTasks = tasks.length ? tasks : DEFAULT_TASKS.slice();
-
-    const goalsRaw = prompt("Paste goals (one per line). Leave blank to use defaults:",
-      existing ? (existing.goals || []).join("\n") : DEFAULT_GOALS.join("\n")) || "";
-    const goals = goalsRaw.split("\n").map(s => s.trim()).filter(Boolean);
-    const finalGoals = goals.length ? goals : DEFAULT_GOALS.slice();
-
-    if (existingId) {
-      const idx = clients.findIndex(c => c.id === existingId);
-      if (idx >= 0) clients[idx] = { ...clients[idx], name, planStart, planEnd, workLocation, tasks: finalTasks, goals: finalGoals };
-      saveClients(clients);
-      renderClientSelect(existingId);
-      onClientChange();
-      return;
+    // restore signature
+    if(d.sigDataUrl){
+      const img = new Image();
+      img.onload = () => {
+        const box = canvas.getBoundingClientRect();
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img, 0, 0, box.width, box.height);
+      };
+      img.src = d.sigDataUrl;
     }
-
-    const newClient = { id: "client_" + Math.random().toString(16).slice(2), name, planStart, planEnd, workLocation, tasks: finalTasks, goals: finalGoals };
-    clients.push(newClient);
-    saveClients(clients);
-    renderClientSelect(newClient.id);
-    onClientChange();
   }
 
-  function lockAfterClientSigns() {
-    if (!clientSigPng) { alert("Client signature is blank."); return; }
-    if (workflowState !== STATE.DRAFT) { alert("Client lock only allowed from DRAFT."); return; }
-    if (!el("clientSigName").value.trim()) { alert("Client printed name is required."); return; }
-    addAudit("CLIENT_SIGNED_LOCKED", el("clientSigName").value.trim());
-    setWorkflowState(STATE.CLIENT_LOCKED, "<strong>Locked:</strong> Client signed. PIN can unlock for edits. Coach can sign now.");
-    autosave();
+  function saveDraft(){
+    const data = getFormData();
+    localStorage.setItem(KEY, JSON.stringify(data));
   }
 
-  function unlockForCorrections() {
-    if (!(workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.COACH_LOCKED)) { alert("Unlock only allowed from a locked state."); return; }
-    const name = el("specUnlockName").value.trim();
-    const pin = el("specUnlockPin").value.trim();
-    if (!name) { alert("Specialist name is required."); return; }
-    if (pin !== SPECIALIST_UNLOCK_PIN) { alert("Wrong PIN."); return; }
-    el("specUnlockWhen").value = nowLocalString();
-    addAudit("SPECIALIST_UNLOCKED", name);
-    setWorkflowState(STATE.UNLOCKED_CORRECTION, "<strong>Unlocked:</strong> Edits allowed. Re-lock when done.");
-    autosave();
-  }
-
-  function relockAfterEdits() {
-    if (workflowState !== STATE.UNLOCKED_CORRECTION) { alert("Re-lock only allowed when unlocked."); return; }
-    // If coach already signed, go back to COACH_LOCKED, else back to CLIENT_LOCKED
-    if (coachSigPng) {
-      addAudit("RELOCKED_TO_COACH_LOCKED", "system");
-      setWorkflowState(STATE.COACH_LOCKED, "<strong>Locked:</strong> Re-locked (coach signature already present).");
-    } else {
-      addAudit("RELOCKED_TO_CLIENT_LOCKED", "system");
-      setWorkflowState(STATE.CLIENT_LOCKED, "<strong>Locked:</strong> Re-locked (awaiting coach signature).");
+  function loadDraft(){
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return;
+    try{
+      const data = JSON.parse(raw);
+      setFormData(data);
+    }catch(e){
+      // ignore
     }
-    autosave();
   }
 
-  // ✅ Coach lock works from CLIENT_LOCKED OR UNLOCKED_CORRECTION (no PIN required)
-  function lockAfterCoachSigns() {
-    if (!(workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.UNLOCKED_CORRECTION)) {
-      alert("Coach lock is only allowed after the client has signed (or after an unlock).");
-      return;
-    }
-    if (!coachSigPng) { alert("Coach signature is blank."); return; }
-    if (!el("coachSigName").value.trim()) { alert("Coach printed name is required."); return; }
-
-    addAudit("COACH_SIGNED_LOCKED", el("coachSigName").value.trim());
-    setWorkflowState(STATE.COACH_LOCKED, "<strong>Locked:</strong> Coach signed. Specialist final sign-off required to finalize.");
-    autosave();
+  // Light autosave so typing doesn't feel laggy
+  let t = null;
+  function autoSaveLight(){
+    clearTimeout(t);
+    t = setTimeout(saveDraft, 300);
   }
 
-  function finalizeEntry() {
-    if (workflowState !== STATE.COACH_LOCKED) { alert("Finalize only allowed after coach lock."); return; }
-    if (!clientSigPng || !coachSigPng) { alert("Missing required signatures (client + coach)."); return; }
-    if (!el("specFinalName").value.trim()) { alert("Specialist printed name is required."); return; }
-    if (!specFinalPng) { alert("Specialist final signature is blank."); return; }
-    addAudit("SPECIALIST_FINALIZED", el("specFinalName").value.trim());
-    setWorkflowState(STATE.FINAL, "<strong>FINAL:</strong> Locked forever.");
-    autosave();
-  }
-
-  function initPads() {
-    clientPad = setupSignaturePad("clientSigPad",
-      () => (workflowState === STATE.DRAFT),
-      () => { clientSigPng = clientPad.toDataURL(); el("clientSigWhen").value = nowLocalString(); autosave(); applyUiRules(); }
-    );
-
-    // ✅ Coach can draw in CLIENT_LOCKED OR UNLOCKED_CORRECTION
-    coachPad = setupSignaturePad("coachSigPad",
-      () => ((workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.UNLOCKED_CORRECTION) && workflowState !== STATE.FINAL),
-      () => { coachSigPng = coachPad.toDataURL(); el("coachSigWhen").value = nowLocalString(); autosave(); applyUiRules(); }
-    );
-
-    specFinalPad = setupSignaturePad("specFinalPad",
-      () => (workflowState === STATE.COACH_LOCKED),
-      () => { specFinalPng = specFinalPad.toDataURL(); el("specFinalWhen").value = nowLocalString(); autosave(); applyUiRules(); }
-    );
-  }
-
-  function wireSignatureButtons() {
-    el("clientSigClear").addEventListener("click", () => {
-      if (workflowState !== STATE.DRAFT) return;
-      clientPad.clear(); clientSigPng=""; el("clientSigWhen").value=""; autosave(); applyUiRules();
-    });
-
-    el("coachSigClear").addEventListener("click", () => {
-      if (workflowState === STATE.FINAL) return;
-      if (!(workflowState === STATE.CLIENT_LOCKED || workflowState === STATE.UNLOCKED_CORRECTION)) return;
-      coachPad.clear(); coachSigPng=""; el("coachSigWhen").value=""; autosave(); applyUiRules();
-    });
-
-    el("specFinalClear").addEventListener("click", () => {
-      if (workflowState !== STATE.COACH_LOCKED) return;
-      specFinalPad.clear(); specFinalPng=""; el("specFinalWhen").value=""; autosave(); applyUiRules();
-    });
-  }
-
-  // Wire inputs
-  ["workLocation","entryDate","additionalNotes","clientSigName","coachSigName","specFinalName","specUnlockName"].forEach(id => {
-    el(id).addEventListener("input", autosave);
-    el(id).addEventListener("change", autosave);
+  document.getElementById('btnSave').addEventListener('click', () => {
+    saveDraft();
+    alert("Draft saved on this browser.");
   });
 
-  el("timeIn").addEventListener("input", () => { recalcTotalTime(); autosave(); });
-  el("timeOut").addEventListener("input", () => { recalcTotalTime(); autosave(); });
+  // Save on key fields
+  ["clientName","coachName","serviceDate","site","startTime","endTime","jobTask","notes","sigName","sigMethod"]
+    .forEach(id => document.getElementById(id).addEventListener('input', autoSaveLight));
 
-  el("clientSelect").addEventListener("change", () => { onClientChange(); autosave(); });
+  loadDraft();
 
-  el("addTask").addEventListener("click", () => { if (!isEditableState()) return; addTaskRow(el("tasksBody"), { title:"", support:"", note:"" }); autosave(); });
-  el("addGoal").addEventListener("click", () => { if (!isEditableState()) return; addGoalRow(el("goalsBody"), { title:"", prompts:[{ code:"", count:1 }], note:"" }); autosave(); });
-
-  el("manageClients").addEventListener("click", () => { if (!isEditableState()) return; addOrUpdateClient(null); });
-  el("editClient").addEventListener("click", () => { if (!isEditableState()) return; const cid = currentClientId(); if (!cid) return; addOrUpdateClient(cid); });
-
-  el("addDemoClients").addEventListener("click", () => {
-    if (!isEditableState()) return;
-    const demo = [
-      { id:"client_1", name:"Test Client A", planStart:"2025-12-19", planEnd:"2026-12-18", workLocation:"Albertsons", tasks:DEFAULT_TASKS, goals:DEFAULT_GOALS },
-      { id:"client_2", name:"Test Client B", planStart:"2025-10-01", planEnd:"2026-09-30", workLocation:"Target", tasks:DEFAULT_TASKS, goals:DEFAULT_GOALS }
-    ];
-    saveClients(demo);
-    renderClientSelect("client_1");
-    onClientChange();
-    autosave();
+  // ---------- Print ----------
+  document.getElementById('btnPrint').addEventListener('click', () => {
+    saveDraft();
+    window.print();
   });
-
-  el("editTasks").addEventListener("click", () => {
-    if (!isEditableState()) return;
-    const cid = currentClientId();
-    const client = getClientById(cid);
-    if (!client) return;
-    const existing = (client.tasks || DEFAULT_TASKS).join("\n").replace(/</g,"&lt;");
-    openModal("Edit Client Tasks (one per line)",
-      `<label>Tasks (one per line)</label><textarea id="modalTasks" style="min-height:260px;">${existing}</textarea>`,
-      () => {
-        const raw = document.getElementById("modalTasks").value || "";
-        const tasks = raw.split("\n").map(s => s.trim()).filter(Boolean);
-        updateClient(cid, { tasks });
-        setTasks(tasks.map(t => ({ title:t, support:"", note:"" })));
-        autosave(); setSaveState("Tasks updated");
-      }
-    );
-  });
-
-  el("editGoals").addEventListener("click", () => {
-    if (!isEditableState()) return;
-    const cid = currentClientId();
-    const client = getClientById(cid);
-    if (!client) return;
-    const existing = (client.goals || DEFAULT_GOALS).join("\n").replace(/</g,"&lt;");
-    openModal("Edit Client Goals (one per line)",
-      `<label>Goals (one per line)</label><textarea id="modalGoals" style="min-height:260px;">${existing}</textarea>`,
-      () => {
-        const raw = document.getElementById("modalGoals").value || "";
-        const goals = raw.split("\n").map(s => s.trim()).filter(Boolean);
-        updateClient(cid, { goals });
-        setGoals(goals.map(g => ({ title:g, prompts:[{ code:"", count:1 }], note:"" })));
-        autosave(); setSaveState("Goals updated");
-      }
-    );
-  });
-
-  el("lockAfterClient").addEventListener("click", lockAfterClientSigns);
-  el("unlockForCorrection").addEventListener("click", unlockForCorrections);
-  el("relockAfterEdits").addEventListener("click", relockAfterEdits);
-  el("lockAfterCoach").addEventListener("click", lockAfterCoachSigns);
-  el("finalizeEntry").addEventListener("click", finalizeEntry);
-
-  el("saveNow").addEventListener("click", () => {
-    const cid = currentClientId();
-    if (!cid) return;
-    localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-    setSaveState("Saved");
-  });
-
-  el("exportJson").addEventListener("click", () => {
-    const data = snapshot();
-    const safeName = (data.clientName || "client").replace(/[^a-z0-9]+/gi, "_").slice(0,40);
-    const date = data.entryDate || new Date().toISOString().slice(0,10);
-    download(`TA_${safeName}_${date}.json`, JSON.stringify(data, null, 2));
-  });
-
-  el("importJson").addEventListener("click", promptImport);
-  el("printPage").addEventListener("click", () => window.print());
-
-  el("wipeAll").addEventListener("click", () => {
-    if (!confirm("Wipe ALL locally saved data on this device (clients + entries)?")) return;
-    localStorage.removeItem(CLIENTS_KEY);
-    Object.keys(localStorage).forEach(k => { if (k.startsWith(STORAGE_KEY_BASE + ":")) localStorage.removeItem(k); });
-    location.reload();
-  });
-
-  el("modalClose").addEventListener("click", () => el("modalOverlay").style.display = "none");
-  el("modalCancel").addEventListener("click", () => el("modalOverlay").style.display = "none");
-
-  (function init() {
-    initPads();
-    wireSignatureButtons();
-
-    renderClientSelect();
-    const clients = getClients();
-    if (clients.length) {
-      renderClientSelect(clients[0].id);
-      onClientChange();
-      setSaveState("Ready");
-    } else {
-      lockPlanDates("", "");
-      setWorkflowState(STATE.DRAFT);
-      setSaveState("No clients loaded (use 'Load Demo Clients' or 'Add Client')");
-      applyUiRules();
-    }
-  })();
 </script>
 </body>
 </html>
