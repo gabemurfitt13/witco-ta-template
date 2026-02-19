@@ -85,6 +85,24 @@
     }
     .sigDebug { font-size: 11px; color:#666; margin-top:6px; }
 
+    .invalid {
+      border-color:#b42318 !important;
+      box-shadow: 0 0 0 3px rgba(180,35,24,.10);
+    }
+    .errbox {
+      margin-top:10px;
+      border:1px solid #ffd3d3;
+      background:#fff1f1;
+      color:#7a1111;
+      border-radius:12px;
+      padding:10px;
+      font-size:12px;
+      line-height:1.35;
+      display:none;
+    }
+    .errbox ul { margin:6px 0 0 18px; }
+    .errbox li { margin:2px 0; }
+
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
       .sigGrid { grid-template-columns: 1fr; }
@@ -104,9 +122,14 @@
   <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-18__PIN0413__sigpad_touchfix_v1</span>
+      <span class="build">BUILD_ID: 2026-02-18__required_v1</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
+    </div>
+
+    <div id="errorBox" class="errbox">
+      <b>Can’t sign yet.</b> Fix these first:
+      <ul id="errorList"></ul>
     </div>
 
     <div class="grid">
@@ -195,7 +218,7 @@
 
     <div class="rowhead">
       <h2>Signatures</h2>
-      <div class="hint">Client signature locks. PIN unlock allows edits if needed.</div>
+      <div class="hint">Client signature locks. Required fields are enforced before any signing.</div>
     </div>
 
     <div class="sigGrid">
@@ -241,7 +264,7 @@
 
     <div class="rowhead">
       <h2>Unlock for Edits (PIN)</h2>
-      <div class="hint">PIN is only for unlocking edits. Coach signature is not blocked by PIN.</div>
+      <div class="hint">PIN only unlocks editing after client sign. Does not block coach signing.</div>
     </div>
 
     <div class="grid" style="align-items:end;">
@@ -275,10 +298,10 @@
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-18__PIN0413__sigpad_touchfix_v1 */
+/* BUILD_ID: 2026-02-18__required_v1 */
 
-const CLIENTS_KEY = "witco_clients_v3__PIN0413";
-const STORAGE_KEY_BASE = "witco_supported_employment_form__PIN0413";
+const CLIENTS_KEY = "witco_clients_required_v1";
+const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
 
 const DEFAULT_TASKS = [
@@ -355,7 +378,10 @@ const E = {
 
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
-  demoBtn: el("demoBtn")
+  demoBtn: el("demoBtn"),
+
+  errorBox: el("errorBox"),
+  errorList: el("errorList")
 };
 
 const formState = {
@@ -378,6 +404,23 @@ function setLockPill() {
   if (formState.lockState === "unlocked") { E.lockPill.textContent="Unlocked"; E.lockPill.classList.add("good"); }
   if (formState.lockState === "locked")   { E.lockPill.textContent="Locked"; E.lockPill.classList.add("bad"); }
   if (formState.lockState === "final")    { E.lockPill.textContent="FINAL"; E.lockPill.classList.add("bad"); }
+}
+
+function clearValidationUI() {
+  document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
+  E.errorList.innerHTML = "";
+  E.errorBox.style.display = "none";
+}
+function showErrors(errors) {
+  E.errorList.innerHTML = "";
+  errors.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = e.msg;
+    E.errorList.appendChild(li);
+    if (e.node) e.node.classList.add("invalid");
+  });
+  E.errorBox.style.display = errors.length ? "block" : "none";
+  if (errors.length) E.errorBox.scrollIntoView({ behavior:"smooth", block:"start" });
 }
 
 function usToISO(us) {
@@ -580,7 +623,90 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
-// ---------- SIGNATURE PAD (pointer + touch + mouse) ----------
+/* ---------- REQUIRED VALIDATION ---------- */
+function validateRequiredForSigning() {
+  clearValidationUI();
+  const errors = [];
+
+  const cid = currentClientId();
+  if (!cid) errors.push({ msg: "Client must be selected.", node: E.clientSelect });
+
+  if (!E.planStartUS.value.trim()) errors.push({ msg: "Plan Start is missing.", node: E.planStartUS });
+  if (!E.planEndUS.value.trim()) errors.push({ msg: "Plan End is missing.", node: E.planEndUS });
+
+  if (!E.workLocation.value.trim()) errors.push({ msg: "Work Location is required.", node: E.workLocation });
+
+  const entryISO = usToISO(E.entryDateUS.value);
+  if (!entryISO) errors.push({ msg: "Date is required and must be MM/DD/YYYY.", node: E.entryDateUS });
+
+  if (!E.timeIn.value) errors.push({ msg: "Time In is required.", node: E.timeIn });
+  if (!E.timeOut.value) errors.push({ msg: "Time Out is required.", node: E.timeOut });
+
+  // Tasks: if Task title exists, require Support and Note
+  const taskRows = [...E.tasksBody.querySelectorAll("tr")];
+  taskRows.forEach((tr, idx) => {
+    const inputs = tr.querySelectorAll("input, select");
+    const title = (inputs[0]?.value || "").trim();
+    const support = (inputs[1]?.value || "").trim();
+    const note = (inputs[2]?.value || "").trim();
+
+    if (title) {
+      if (!support) errors.push({ msg: `Task ${idx+1}: Support is required when a task is listed.`, node: inputs[1] });
+      if (!note) errors.push({ msg: `Task ${idx+1}: Note is required when a task is listed.`, node: inputs[2] });
+    }
+  });
+
+  // Goals: if Goal title exists, require prompt(s) code+count AND anecdotal record
+  const goalRows = [...E.goalsBody.querySelectorAll("tr")];
+  goalRows.forEach((tr, idx) => {
+    const tas = tr.querySelectorAll("textarea");
+    const goalTitle = (tas[0]?.value || "").trim();
+    const anecdotal = (tas[1]?.value || "").trim();
+
+    if (goalTitle) {
+      // Anecdotal required
+      if (!anecdotal) errors.push({ msg: `Goal ${idx+1}: Anecdotal record is required when a goal is listed.`, node: tas[1] });
+
+      // Prompts required: at least one with code and count>0
+      const lines = [...tr.querySelectorAll(".supportLine")];
+      const validPrompt = lines.some(line => {
+        const sel = line.querySelector("select");
+        const cnt = line.querySelector('input[type="number"]');
+        const code = (sel?.value || "").trim();
+        const count = parseInt(cnt?.value || "0", 10) || 0;
+        return code && count > 0;
+      });
+
+      if (!validPrompt) {
+        // Mark all prompt selects invalid to be obvious
+        const firstSel = tr.querySelector(".supportLine select");
+        errors.push({ msg: `Goal ${idx+1}: At least one prompt (code + count) is required when a goal is listed.`, node: firstSel || tr });
+        tr.querySelectorAll(".supportLine select").forEach(s => s.classList.add("invalid"));
+        tr.querySelectorAll(".supportLine input[type='number']").forEach(n => n.classList.add("invalid"));
+      } else {
+        // If there are lines but some are half-filled, flag them
+        lines.forEach((line, j) => {
+          const sel = line.querySelector("select");
+          const cnt = line.querySelector('input[type="number"]');
+          const code = (sel?.value || "").trim();
+          const count = parseInt(cnt?.value || "0", 10) || 0;
+          const any = code || count;
+          const ok = code && count > 0;
+          if (any && !ok) {
+            errors.push({ msg: `Goal ${idx+1}: Prompt line ${j+1} must have BOTH code and count.`, node: sel || cnt });
+            if (sel) sel.classList.add("invalid");
+            if (cnt) cnt.classList.add("invalid");
+          }
+        });
+      }
+    }
+  });
+
+  if (errors.length) showErrors(errors);
+  return { ok: errors.length === 0, errors };
+}
+
+/* ---------- SIGNATURE PAD ---------- */
 function sizeCanvasToCSS(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -627,15 +753,11 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
   function commit() {
     const r = canvas.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    // If nothing drawn, keep empty
     if (getStrokes() <= 0) { setData(""); updateDebug(); return; }
-
-    // Use the actual backing store for best reliability
     try {
       const url = canvas.toDataURL("image/png");
       setData(url);
     } catch {
-      // Fallback: copy to tmp
       const tmp = document.createElement("canvas");
       tmp.width = Math.max(1, Math.round(r.width));
       tmp.height = Math.max(1, Math.round(r.height));
@@ -650,11 +772,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  function startAt(p) {
-    sizeCanvasToCSS(canvas);
-    drawing = true;
-    last = p;
-  }
+  function startAt(p) { sizeCanvasToCSS(canvas); drawing = true; last = p; }
   function moveTo(p) {
     if (!drawing) return;
     ctx.lineWidth = 2;
@@ -676,40 +794,28 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     autosave();
   }
 
-  // PointerEvents if available
   if (window.PointerEvent) {
     canvas.addEventListener("pointerdown", (e) => {
       startAt(posFromClientXY(e.clientX, e.clientY));
       canvas.setPointerCapture?.(e.pointerId);
       e.preventDefault();
     });
-
-    canvas.addEventListener("pointermove", (e) => {
-      moveTo(posFromClientXY(e.clientX, e.clientY));
-      e.preventDefault();
-    });
-
+    canvas.addEventListener("pointermove", (e) => { moveTo(posFromClientXY(e.clientX, e.clientY)); e.preventDefault(); });
     canvas.addEventListener("pointerup", (e) => { end(); e.preventDefault(); });
     canvas.addEventListener("pointercancel", (e) => { end(); e.preventDefault(); });
   } else {
-    // Touch fallback
     canvas.addEventListener("touchstart", (e) => {
-      const t = e.touches[0];
-      if (!t) return;
+      const t = e.touches[0]; if (!t) return;
       startAt(posFromClientXY(t.clientX, t.clientY));
       e.preventDefault();
     }, { passive:false });
-
     canvas.addEventListener("touchmove", (e) => {
-      const t = e.touches[0];
-      if (!t) return;
+      const t = e.touches[0]; if (!t) return;
       moveTo(posFromClientXY(t.clientX, t.clientY));
       e.preventDefault();
     }, { passive:false });
-
     canvas.addEventListener("touchend", (e) => { end(); e.preventDefault(); }, { passive:false });
 
-    // Mouse fallback
     canvas.addEventListener("mousedown", (e) => { startAt(posFromClientXY(e.clientX,e.clientY)); e.preventDefault(); });
     window.addEventListener("mousemove", (e) => { moveTo(posFromClientXY(e.clientX,e.clientY)); });
     window.addEventListener("mouseup", () => end());
@@ -751,7 +857,6 @@ function syncSigBadges(){
     p.classList.toggle("bad", !ok);
   });
 
-  // keep debug text fresh
   sigPads?.client?.updateDebug?.();
   sigPads?.coach?.updateDebug?.();
   sigPads?.spec?.updateDebug?.();
@@ -761,7 +866,7 @@ function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-18__PIN0413__sigpad_touchfix_v1",
+    build:"2026-02-18__required_v1",
     clientId:cid,
     clientName:c?.name||"",
     planStartISO:c?.planStartISO||"",
@@ -800,7 +905,6 @@ function apply(data){
   E.unlockName.value=data.unlock?.name||"";
   E.unlockAt.value=data.unlock?.at||"";
 
-  // restore sigs + strokes
   formState.sigs = data.sigs || formState.sigs;
 
   E.clientPrinted.value=formState.sigs.client.printed||"";
@@ -827,7 +931,7 @@ function autosave(){
   },150);
 }
 
-// ---------- sig pads init ----------
+/* ---------- sig pads init ---------- */
 let sigPads = null;
 function initSigPads() {
   sigPads = {
@@ -859,9 +963,7 @@ function initSigPads() {
 }
 initSigPads();
 
-// ---------- wiring ----------
-function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
-
+/* ---------- wiring ---------- */
 function loadClientTemplate(client){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
@@ -923,7 +1025,12 @@ function download(filename,text){
   a.href=url; a.download=filename; a.click();
   URL.revokeObjectURL(url);
 }
-E.saveNow.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot())); setSaveState("Saved","good"); });
+E.saveNow.addEventListener("click", ()=>{
+  const cid=currentClientId(); if(!cid) return;
+  localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+  setSaveState("Saved","good");
+});
+
 E.exportJson.addEventListener("click", ()=>{
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
@@ -1005,7 +1112,7 @@ E.wipeAll.addEventListener("click", ()=>{
   location.reload();
 });
 
-// ---------- LOCK / UNLOCK ----------
+/* ---------- LOCK / UNLOCK ---------- */
 function lockEdits(){
   formState.lockState = "locked";
   updateLockUI();
@@ -1031,7 +1138,7 @@ E.relockBtn.addEventListener("click", ()=>{
   setSaveState("Re-locked","good");
 });
 
-// ---------- SIGNING ----------
+/* ---------- SIGNING ---------- */
 function finalizeClientSignature(){
   formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
   formState.sigs.client.signedAt = nowStamp();
@@ -1062,30 +1169,42 @@ E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  autosave()
 E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   autosave(); syncSigBadges(); });
 
 E.clientSign.addEventListener("click", ()=>{
+  const v = validateRequiredForSigning();
+  if (!v.ok) return;
+
   sigPads.client.commit();
   if((formState.sigs.client.strokes||0) <= 0) return alert("Client signature is blank.");
   if(!(E.clientPrinted.value||"").trim()) return alert("Client printed name is required.");
   if(!formState.sigs.client.dataUrl) return alert("Signature failed to capture. Try signing again.");
+
   finalizeClientSignature();
 });
 
 E.coachSign.addEventListener("click", ()=>{
+  const v = validateRequiredForSigning();
+  if (!v.ok) return;
+
   sigPads.coach.commit();
   if((formState.sigs.coach.strokes||0) <= 0) return alert("Coach signature is blank.");
   if(!(E.coachPrinted.value||"").trim()) return alert("Coach printed name is required.");
   if(!formState.sigs.coach.dataUrl) return alert("Signature failed to capture. Try signing again.");
+
   finalizeCoachSignature();
 });
 
 E.specFinal.addEventListener("click", ()=>{
+  const v = validateRequiredForSigning();
+  if (!v.ok) return;
+
   sigPads.spec.commit();
   if((formState.sigs.spec.strokes||0) <= 0) return alert("Specialist signature is blank.");
   if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
   if(!formState.sigs.spec.dataUrl) return alert("Signature failed to capture. Try signing again.");
+
   finalizeSpecSignature();
 });
 
-// ---------- init ----------
+/* ---------- init ---------- */
 (function init(){
   renderClientSelect();
   const clients=getClients();
