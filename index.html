@@ -1329,7 +1329,6 @@ E.reviewKickBack.addEventListener("click", async ()=>{
       .from("ta_records_v2")
       .update({
         data: JSON.parse(JSON.stringify(snapshot())),
-        status: "needs_correction",
         correction_reason: reason,
         needs_correction_at: new Date().toISOString(),
         needs_correction_by: uid
@@ -1481,7 +1480,6 @@ function finalizeSpecSignature(){
         .from("ta_records_v2")
         .update({
           data: JSON.parse(JSON.stringify(snapshot())),
-          status: "approved",
           approved_at: new Date().toISOString(),
           approved_by: uid
         })
