@@ -1260,7 +1260,6 @@ E.importJson.addEventListener("click", ()=>{
       client_id: String(clientId),
       coach_user_id: uid,
       data: cleanSnap,
-      status: "submitted",
       submitted_at: new Date().toISOString(),
       client_signature_path: cleanSnap?.sigs?.client?.storagePath || null,
       coach_signature_path: cleanSnap?.sigs?.coach?.storagePath || null,
