@@ -346,6 +346,7 @@
 
     <div class="btnbar" style="margin-top:10px;">
       <button id="saveNow" type="button">Save</button>
+      <button class="secondary" id="resumeDraft" type="button">Resume Draft</button>
       <button class="secondary" id="exportJson" type="button">Export JSON</button>
       <button class="secondary" id="importJson" type="button">Import JSON</button>
       <button class="ok" id="submitSupabase" type="button">Submit to Supabase (v2)</button>
@@ -443,6 +444,7 @@ const E = {
   relockBtn: el("relockBtn"),
 
   saveNow: el("saveNow"),
+  resumeDraft: el("resumeDraft"),
   exportJson: el("exportJson"),
   importJson: el("importJson"),
   wipeAll: el("wipeAll"),
@@ -1113,7 +1115,7 @@ function initSigPads() {
 initSigPads();
 
 /* ---------- wiring ---------- */
-function loadClientTemplate(client){
+function loadClientTemplate(client, preserveExistingDraft=false){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
   E.workLocation.value=client.workLocation||"";
@@ -1136,7 +1138,9 @@ function loadClientTemplate(client){
   sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
   syncSigBadges();
   updateLockUI();
-  autosave();
+    // Don't overwrite an existing draft just because we loaded the template.
+  // We'll autosave once the user starts typing or hits Save.
+  if (!preserveExistingDraft) autosave();
 }
 
 function loadSavedForClient(clientId){
@@ -1149,9 +1153,11 @@ function onClientChange(){
   const cid=currentClientId();
   const client=getClientById(cid);
   if(!client) return;
-  const loaded=loadSavedForClient(cid);
-  if(!loaded) loadClientTemplate(client);
-  setSaveState(loaded ? "Loaded saved entry" : "Loaded template", "good");
+
+  // ALWAYS start a new TA from the client template.
+  // Drafts can be resumed only by clicking "Resume Draft".
+  loadClientTemplate(client, true);
+  setSaveState("Started new TA (template loaded)", "good");
 }
 E.clientSelect.addEventListener("change", ()=>onClientChange());
 
@@ -1179,7 +1185,20 @@ E.saveNow.addEventListener("click", ()=>{
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
+E.resumeDraft.addEventListener("click", ()=>{
+  const cid=currentClientId();
+  if(!cid) return;
 
+  const raw = localStorage.getItem(storageKeyFor(cid));
+  if(!raw) return alert("No draft found for this client on this device.");
+
+  try {
+    apply(JSON.parse(raw));
+    setSaveState("Draft resumed", "good");
+  } catch {
+    alert("Draft data is corrupted and couldn't be loaded.");
+  }
+});
 E.exportJson.addEventListener("click", ()=>{
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
