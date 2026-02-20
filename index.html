@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Medicaid Supported Employment Data Sheet</title>
 
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; background: #f6f7fb; color: #111; }
@@ -16,6 +19,7 @@
     .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
     .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
     .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
+    .pill.warn { background:#fff7e6; border-color:#ffe1a3; color:#7a4a00; }
 
     .build {
       display:inline-block;
@@ -85,13 +89,6 @@
     }
     .sigDebug { font-size: 11px; color:#666; margin-top:6px; }
 
-    /* Hard lock: make client canvas truly non-interactive */
-    .sigLocked {
-      pointer-events: none !important;
-      opacity: 0.92;
-      filter: grayscale(0.15);
-    }
-
     .invalid {
       border-color:#b42318 !important;
       box-shadow: 0 0 0 3px rgba(180,35,24,.10);
@@ -110,8 +107,29 @@
     .errbox ul { margin:6px 0 0 18px; }
     .errbox li { margin:2px 0; }
 
-    /* Role-based hiding */
-    .hidden { display:none !important; }
+    /* Auth overlay */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display:none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
+    }
+    .modal {
+      width: min(520px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e6e8f0;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      padding: 14px;
+    }
+    .modal h3 { margin: 0 0 6px; font-size: 16px; }
+    .modal p { margin: 0 0 10px; font-size: 12px; color: #555; }
+    .modal .row { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    .modal .actions { display:flex; gap: 8px; flex-wrap:wrap; margin-top: 10px; }
+    .modal .msg { margin-top: 8px; font-size: 12px; color:#7a1111; }
 
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
@@ -128,14 +146,40 @@
 </head>
 
 <body>
+
+<!-- Auth Overlay -->
+<div class="overlay" id="authOverlay">
+  <div class="modal">
+    <h3>Sign in</h3>
+    <p>Supabase Auth is required to load clients and submit TAs. Use your Supabase user email/password.</p>
+    <div class="row">
+      <div>
+        <label>Email</label>
+        <input id="authEmail" autocomplete="username" placeholder="you@domain.com" />
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="ok" id="authLoginBtn" type="button">Login</button>
+      <button class="secondary" id="authCloseBtn" type="button">Close</button>
+    </div>
+    <div class="msg" id="authMsg" style="display:none;"></div>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build" id="buildBadge"></span>
-      <span class="pill" id="modePill">Mode: —</span>
+      <span class="build">BUILD_ID: 2026-02-19__supabase_full_v1</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
+      <span class="pill bad" id="authPill">Not signed in</span>
+      <button class="secondary tiny" id="openLogin" type="button">Login</button>
+      <button class="secondary tiny" id="logoutBtn" type="button">Logout</button>
     </div>
 
     <div id="errorBox" class="errbox">
@@ -147,10 +191,11 @@
       <div class="col-6">
         <label>Client</label>
         <select id="clientSelect"></select>
-        <div class="manageRow" id="clientAdminRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+        <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
           <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
           <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
+          <button class="secondary tiny" id="reloadClientsSupabase" type="button">Reload Clients (Supabase)</button>
         </div>
       </div>
 
@@ -229,9 +274,7 @@
 
     <div class="rowhead">
       <h2>Signatures</h2>
-      <div class="hint">
-        Client sign locks + timestamps. Only Manager unlock (PIN) allows corrections.
-      </div>
+      <div class="hint">Client signature locks. Required fields are enforced before any signing.</div>
     </div>
 
     <div class="sigGrid">
@@ -261,8 +304,8 @@
         </div>
       </div>
 
-      <div class="sigCard" id="managerOnlySpecSig">
-        <div class="sigTop"><b>Manager / Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
+      <div class="sigCard">
+        <div class="sigTop"><b>Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
         <canvas class="sigcanvas" id="specCanvas"></canvas>
         <div class="sigDebug" id="specDebug">strokes: 0 · data: 0</div>
         <label style="margin-top:8px;">Printed name</label>
@@ -270,71 +313,68 @@
         <div class="sigMeta">Signed at: <span id="specSignedAt">—</span></div>
         <div class="btnbar" style="margin-top:8px;">
           <button class="secondary tiny" id="specClear" type="button">Clear</button>
-          <button class="tiny warn" id="specFinal" type="button">Manager Final Approve (FINAL)</button>
+          <button class="tiny warn" id="specFinal" type="button">Specialist Sign (FINAL)</button>
         </div>
       </div>
     </div>
 
-    <div id="unlockSection">
-      <div class="rowhead">
-        <h2>Unlock for Corrections (Manager PIN)</h2>
-        <div class="hint">Unlock edits only when a client-signed form needs correction.</div>
-      </div>
+    <div class="rowhead">
+      <h2>Unlock for Edits (PIN)</h2>
+      <div class="hint">PIN only unlocks editing after client sign. Does not block coach signing.</div>
+    </div>
 
-      <div class="grid" style="align-items:end;">
-        <div class="col-4">
-          <label>Manager Name</label>
-          <input id="unlockName" placeholder="Name" />
-        </div>
-        <div class="col-4">
-          <label>PIN</label>
-          <input id="unlockPin" type="password" placeholder="0413" />
-        </div>
-        <div class="col-4">
-          <label>Unlocked at</label>
-          <input id="unlockAt" readonly />
-        </div>
-        <div class="col-12">
-          <div class="btnbar">
-            <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
-            <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
-          </div>
+    <div class="grid" style="align-items:end;">
+      <div class="col-4">
+        <label>Specialist Name</label>
+        <input id="unlockName" placeholder="Name" />
+      </div>
+      <div class="col-4">
+        <label>PIN</label>
+        <input id="unlockPin" type="password" placeholder="0413" />
+      </div>
+      <div class="col-4">
+        <label>Unlocked at</label>
+        <input id="unlockAt" readonly />
+      </div>
+      <div class="col-12">
+        <div class="btnbar">
+          <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
+          <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
         </div>
       </div>
     </div>
 
-    <div class="btnbar" id="adminBar" style="margin-top:10px;">
+    <div class="btnbar" style="margin-top:10px;">
       <button id="saveNow" type="button">Save</button>
       <button class="secondary" id="exportJson" type="button">Export JSON</button>
       <button class="secondary" id="importJson" type="button">Import JSON</button>
+      <button class="ok" id="submitSupabase" type="button">Submit to Supabase</button>
       <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
     </div>
   </div>
 </div>
 
 <script>
-/* === BUILD / VERSION === */
-const BUILD_ID = "2026-02-19__role_modes_coach_manager_lock_on_client_sign_v1";
-document.getElementById("buildBadge").textContent = "BUILD_ID: " + BUILD_ID;
+/* BUILD_ID: 2026-02-19__supabase_full_v1 */
 
-/* === ROLE MODE ===
-  coach: data capture only
-  manager: approve + admin + unlock + templates
-*/
-function getMode() {
-  const p = new URLSearchParams(location.search);
-  const m = (p.get("mode") || "coach").toLowerCase();
-  return (m === "manager") ? "manager" : "coach";
-}
-const MODE = getMode();
-document.getElementById("modePill").textContent = "Mode: " + (MODE === "manager" ? "Manager" : "Coach");
+/* -------------------- SUPABASE CONFIG -------------------- */
+const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
+const SIG_BUCKET = "signatures";
 
-/* === CONFIG === */
-const CLIENTS_KEY = "witco_clients_role_v1";
-const STORAGE_KEY_BASE = "witco_supported_employment_role_v1";
+/* Use sessionStorage to reduce auth-token lock headaches during testing */
+window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, storage: window.sessionStorage }
+});
+var sb = window.__sb;
+
+let currentUser = null;
+
+/* -------------------- ORIGINAL CONSTANTS -------------------- */
+const CLIENTS_KEY = "witco_clients_required_v1";
+const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
 
-/* === DEFAULTS === */
 const DEFAULT_TASKS = [
   "Clock in & out",
   "Bag groceries for customers",
@@ -348,10 +388,8 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-
 const el = (id) => document.getElementById(id);
 
-/* === ELEMENTS === */
 const E = {
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
@@ -398,7 +436,6 @@ const E = {
   coachDebug: el("coachDebug"),
   specDebug: el("specDebug"),
 
-  unlockSection: el("unlockSection"),
   unlockName: el("unlockName"),
   unlockPin: el("unlockPin"),
   unlockAt: el("unlockAt"),
@@ -414,15 +451,24 @@ const E = {
   editClientBtn: el("editClientBtn"),
   demoBtn: el("demoBtn"),
 
-  clientAdminRow: el("clientAdminRow"),
-  adminBar: el("adminBar"),
-  managerOnlySpecSig: el("managerOnlySpecSig"),
-
   errorBox: el("errorBox"),
-  errorList: el("errorList")
+  errorList: el("errorList"),
+
+  submitSupabase: el("submitSupabase"),
+  reloadClientsSupabase: el("reloadClientsSupabase"),
+
+  authPill: el("authPill"),
+  openLogin: el("openLogin"),
+  logoutBtn: el("logoutBtn"),
+
+  authOverlay: el("authOverlay"),
+  authEmail: el("authEmail"),
+  authPass: el("authPass"),
+  authLoginBtn: el("authLoginBtn"),
+  authCloseBtn: el("authCloseBtn"),
+  authMsg: el("authMsg")
 };
 
-/* === STATE === */
 const formState = {
   lockState: "unlocked", // unlocked | locked | final
   sigs: {
@@ -434,9 +480,10 @@ const formState = {
 
 function setSaveState(text, kind="") {
   E.saveState.textContent = text;
-  E.saveState.classList.remove("bad","good");
+  E.saveState.classList.remove("bad","good","warn");
   if (kind==="bad") E.saveState.classList.add("bad");
   if (kind==="good") E.saveState.classList.add("good");
+  if (kind==="warn") E.saveState.classList.add("warn");
 }
 function setLockPill() {
   E.lockPill.classList.remove("bad","good");
@@ -445,7 +492,90 @@ function setLockPill() {
   if (formState.lockState === "final")    { E.lockPill.textContent="FINAL"; E.lockPill.classList.add("bad"); }
 }
 
-/* === DATE HELPERS (US) === */
+/* -------------------- AUTH UI -------------------- */
+function showAuthOverlay(show=true){
+  E.authOverlay.style.display = show ? "flex" : "none";
+  E.authMsg.style.display = "none";
+  if (show) setTimeout(()=>E.authEmail.focus(), 50);
+}
+function setAuthPill(text, kind){
+  E.authPill.textContent = text;
+  E.authPill.classList.remove("bad","good","warn");
+  E.authPill.classList.add(kind || "bad");
+}
+function showAuthMsg(msg){
+  E.authMsg.textContent = msg;
+  E.authMsg.style.display = "block";
+}
+
+async function refreshSessionAndUI(){
+  const { data, error } = await sb.auth.getSession();
+  if (error) {
+    setAuthPill("Auth error", "bad");
+    currentUser = null;
+    return;
+  }
+  const session = data?.session || null;
+  if (!session) {
+    currentUser = null;
+    setAuthPill("Not signed in", "bad");
+    return;
+  }
+  currentUser = session.user;
+  const email = currentUser?.email || "Signed in";
+  setAuthPill(email, "good");
+}
+
+E.openLogin.addEventListener("click", ()=>showAuthOverlay(true));
+E.authCloseBtn.addEventListener("click", ()=>showAuthOverlay(false));
+E.authLoginBtn.addEventListener("click", async ()=>{
+  const email = (E.authEmail.value||"").trim();
+  const password = (E.authPass.value||"").trim();
+  if (!email || !password) return showAuthMsg("Email and password required.");
+
+  try{
+    setAuthPill("Signing in…", "warn");
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthPill("Not signed in", "bad");
+      return showAuthMsg(error.message);
+    }
+    await refreshSessionAndUI();
+    showAuthOverlay(false);
+    setSaveState("Signed in", "good");
+  } catch (e){
+    setAuthPill("Not signed in", "bad");
+    showAuthMsg(e?.message || String(e));
+  }
+});
+
+E.logoutBtn.addEventListener("click", async ()=>{
+  try{
+    await sb.auth.signOut();
+  } catch {}
+  currentUser = null;
+  setAuthPill("Not signed in", "bad");
+  setSaveState("Signed out", "warn");
+});
+
+/* -------------------- VALIDATION UI -------------------- */
+function clearValidationUI() {
+  document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
+  E.errorList.innerHTML = "";
+  E.errorBox.style.display = "none";
+}
+function showErrors(errors) {
+  E.errorList.innerHTML = "";
+  errors.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = e.msg;
+    E.errorList.appendChild(li);
+    if (e.node) e.node.classList.add("invalid");
+  });
+  E.errorBox.style.display = errors.length ? "block" : "none";
+  if (errors.length) E.errorBox.scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
 function usToISO(us) {
   const s = (us || "").trim();
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
@@ -468,14 +598,29 @@ E.entryDateUS.addEventListener("input", () => {
   else E.entryDateUS.value = v;
 });
 
-/* === STORAGE === */
 function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
 function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
 function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
 function getClientById(id) { return getClients().find(c => c.id === id); }
 function currentClientId() { return E.clientSelect.value || ""; }
 
-/* === TIME === */
+function renderClientSelect(selectedId=null) {
+  const clients = getClients();
+  E.clientSelect.innerHTML = "";
+  if (!clients.length) {
+    const opt = document.createElement("option");
+    opt.value=""; opt.textContent="No clients loaded";
+    E.clientSelect.appendChild(opt);
+    return;
+  }
+  clients.forEach(c => {
+    const opt=document.createElement("option");
+    opt.value=c.id; opt.textContent=c.name;
+    E.clientSelect.appendChild(opt);
+  });
+  E.clientSelect.value = selectedId || clients[0].id;
+}
+
 function minutesBetween(t1,t2){
   if(!t1||!t2) return null;
   const [h1,m1]=t1.split(":").map(Number);
@@ -496,7 +641,6 @@ function recalcTotalTime(){
 E.timeIn.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
 E.timeOut.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
 
-/* === TABLE BUILDERS === */
 function makeSupportSelect(value=""){
   const s=document.createElement("select");
   SUPPORT_LEVELS.forEach(v=>{
@@ -506,10 +650,6 @@ function makeSupportSelect(value=""){
     s.appendChild(o);
   });
   return s;
-}
-function autosizeTA(ta){
-  ta.style.height="auto";
-  ta.style.height=(ta.scrollHeight)+"px";
 }
 
 function addTaskRow(tbody, rowData){
@@ -531,7 +671,7 @@ function addTaskRow(tbody, rowData){
 
   const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
   const btn=document.createElement("button");
-  btn.type="button"; btn.className="secondary tiny removeTaskBtn"; btn.textContent="Remove";
+  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
   btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
   tdRemove.appendChild(btn);
 
@@ -565,13 +705,17 @@ function addPromptLine(container, promptData){
   cnt.value = (promptData?.count ?? 1);
 
   const rm=document.createElement("button");
-  rm.type="button"; rm.className="secondary tiny removePromptBtn"; rm.textContent="X";
+  rm.type="button"; rm.className="secondary tiny"; rm.textContent="X";
   rm.addEventListener("click", ()=>{ line.remove(); autosave(); });
 
   [sel,cnt].forEach(n=>{ n.addEventListener("input", autosave); n.addEventListener("change", autosave); });
 
   line.appendChild(sel); line.appendChild(cnt); line.appendChild(rm);
   container.appendChild(line);
+}
+function autosizeTA(ta){
+  ta.style.height="auto";
+  ta.style.height=(ta.scrollHeight)+"px";
 }
 function addGoalRow(tbody, rowData){
   const tr=document.createElement("tr");
@@ -589,7 +733,7 @@ function addGoalRow(tbody, rowData){
   else addPromptLine(wrap,{code:"",count:1});
 
   const addP=document.createElement("button");
-  addP.type="button"; addP.className="secondary tiny addPromptBtn"; addP.textContent="+ Prompt";
+  addP.type="button"; addP.className="secondary tiny"; addP.textContent="+ Prompt";
   addP.addEventListener("click", ()=>{ addPromptLine(wrap,{code:"",count:1}); autosave(); });
 
   tdPrompts.appendChild(wrap);
@@ -602,7 +746,7 @@ function addGoalRow(tbody, rowData){
 
   const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
   const btn=document.createElement("button");
-  btn.type="button"; btn.className="secondary tiny removeGoalBtn"; btn.textContent="Remove";
+  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
   btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
   tdRemove.appendChild(btn);
 
@@ -632,23 +776,7 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
-/* === VALIDATION === */
-function clearValidationUI() {
-  document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
-  E.errorList.innerHTML = "";
-  E.errorBox.style.display = "none";
-}
-function showErrors(errors) {
-  E.errorList.innerHTML = "";
-  errors.forEach(e => {
-    const li = document.createElement("li");
-    li.textContent = e.msg;
-    E.errorList.appendChild(li);
-    if (e.node) e.node.classList.add("invalid");
-  });
-  E.errorBox.style.display = errors.length ? "block" : "none";
-  if (errors.length) E.errorBox.scrollIntoView({ behavior:"smooth", block:"start" });
-}
+/* ---------- REQUIRED VALIDATION ---------- */
 function validateRequiredForSigning() {
   clearValidationUI();
   const errors = [];
@@ -727,7 +855,7 @@ function validateRequiredForSigning() {
   return { ok: errors.length === 0, errors };
 }
 
-/* === SIGNATURE PAD CORE === */
+/* ---------- SIGNATURE PAD ---------- */
 function sizeCanvasToCSS(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -737,7 +865,7 @@ function sizeCanvasToCSS(canvas) {
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
-function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl, canDrawFn) {
+function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl) {
   const ctx = canvas.getContext("2d");
   let drawing = false;
   let last = null;
@@ -776,7 +904,8 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl,
     if (!r.width || !r.height) return;
     if (getStrokes() <= 0) { setData(""); updateDebug(); return; }
     try {
-      setData(canvas.toDataURL("image/png"));
+      const url = canvas.toDataURL("image/png");
+      setData(url);
     } catch {
       const tmp = document.createElement("canvas");
       tmp.width = Math.max(1, Math.round(r.width));
@@ -792,12 +921,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl,
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  function startAt(p) {
-    if (!canDrawFn()) return;
-    sizeCanvasToCSS(canvas);
-    drawing = true;
-    last = p;
-  }
+  function startAt(p) { sizeCanvasToCSS(canvas); drawing = true; last = p; }
   function moveTo(p) {
     if (!drawing) return;
     ctx.lineWidth = 2;
@@ -854,144 +978,19 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl,
 
 function nowStamp(){ return new Date().toLocaleString(); }
 
-/* === LOCK LOGIC === */
-function isManager() { return MODE === "manager"; }
-
-function canEditForm() {
-  // Form edits only when unlocked
-  return formState.lockState === "unlocked";
-}
-function canEditClientSignature() {
-  // Client signature only editable when unlocked
-  return formState.lockState === "unlocked";
-}
-function canEditOtherSignatures() {
-  // Coach and Manager signatures allowed unless FINAL
-  return formState.lockState !== "final";
-}
-
 function setEditingEnabled(enabled){
   [E.workLocation,E.entryDateUS,E.timeIn,E.timeOut,E.additionalNotes].forEach(n=>n.disabled=!enabled);
-
   E.tasksBody.querySelectorAll("input,select,button").forEach(n=>n.disabled=!enabled);
   E.goalsBody.querySelectorAll("textarea,select,input,button").forEach(n=>n.disabled=!enabled);
-
   E.addTask.disabled=!enabled;
   E.addGoal.disabled=!enabled;
-
-  // Save button exists for both modes
   E.saveNow.disabled=!enabled;
 }
-
-function applyRoleRestrictions() {
-  // Hide manager-only UI in coach mode
-  const coachMode = !isManager();
-
-  // Client admin buttons
-  E.clientAdminRow.classList.toggle("hidden", coachMode);
-
-  // Manager signature card + unlock section + admin bar buttons (except Save)
-  E.managerOnlySpecSig.classList.toggle("hidden", coachMode);
-  E.unlockSection.classList.toggle("hidden", coachMode);
-
-  // In coach mode, hide import/export/wipe (keep Save)
-  E.exportJson.classList.toggle("hidden", coachMode);
-  E.importJson.classList.toggle("hidden", coachMode);
-  E.wipeAll.classList.toggle("hidden", coachMode);
-
-  // In coach mode, prevent template edits:
-  // - Task title readonly
-  // - Goal text readonly
-  // - Hide Add/Remove row controls and prompt controls that change structure
-  const taskTitleInputs = E.tasksBody.querySelectorAll("tr td[data-label='Task'] input");
-  taskTitleInputs.forEach(inp => inp.readOnly = coachMode);
-
-  const goalTextAreas = E.goalsBody.querySelectorAll("tr td[data-label='Goal'] textarea");
-  goalTextAreas.forEach(ta => ta.readOnly = coachMode);
-
-  // Hide add task/goal buttons in coach mode
-  E.addTask.classList.toggle("hidden", coachMode);
-  E.addGoal.classList.toggle("hidden", coachMode);
-
-  // Hide remove buttons in coach mode
-  E.tasksBody.querySelectorAll(".removeTaskBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
-  E.goalsBody.querySelectorAll(".removeGoalBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
-
-  // Prompts structure: coach can edit code/count but not add/remove prompt lines
-  E.goalsBody.querySelectorAll(".addPromptBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
-  E.goalsBody.querySelectorAll(".removePromptBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
-}
-
 function updateLockUI(){
   setLockPill();
-
-  // lock all editable form fields when locked/final
-  setEditingEnabled(canEditForm());
-
-  // hard lock client signature pad after client signs
-  const clientLocked = !canEditClientSignature();
-  E.clientCanvas.classList.toggle("sigLocked", clientLocked);
-
-  E.clientClear.disabled = clientLocked;
-  E.clientSign.disabled = clientLocked;
-  E.clientPrinted.disabled = clientLocked;
-
-  // coach pad always allowed unless final, regardless of lock state
-  const otherAllowed = canEditOtherSignatures();
-  E.coachClear.disabled = !otherAllowed;
-  E.coachSign.disabled  = !otherAllowed;
-  E.coachPrinted.disabled = !otherAllowed;
-
-  // manager/spec pad only visible in manager mode
-  if (isManager()) {
-    E.specClear.disabled = !otherAllowed;
-    E.specFinal.disabled = !otherAllowed;
-    E.specPrinted.disabled = !otherAllowed;
-
-    const canUnlock = formState.lockState === "locked";
-    E.unlockBtn.disabled = !canUnlock;
-    E.relockBtn.disabled = (formState.lockState !== "unlocked");
-  }
-
-  applyRoleRestrictions();
+  setEditingEnabled(formState.lockState==="unlocked");
 }
 
-/* === SIGNATURE PADS INIT === */
-let sigPads = null;
-function initSigPads() {
-  sigPads = {
-    client: createSigPad(
-      E.clientCanvas,
-      ()=>formState.sigs.client.dataUrl,
-      (d)=>formState.sigs.client.dataUrl=d,
-      ()=>formState.sigs.client.strokes,
-      (n)=>formState.sigs.client.strokes=n,
-      E.clientDebug,
-      ()=>canEditClientSignature()
-    ),
-    coach: createSigPad(
-      E.coachCanvas,
-      ()=>formState.sigs.coach.dataUrl,
-      (d)=>formState.sigs.coach.dataUrl=d,
-      ()=>formState.sigs.coach.strokes,
-      (n)=>formState.sigs.coach.strokes=n,
-      E.coachDebug,
-      ()=>canEditOtherSignatures()
-    ),
-    spec: createSigPad(
-      E.specCanvas,
-      ()=>formState.sigs.spec.dataUrl,
-      (d)=>formState.sigs.spec.dataUrl=d,
-      ()=>formState.sigs.spec.strokes,
-      (n)=>formState.sigs.spec.strokes=n,
-      E.specDebug,
-      ()=>canEditOtherSignatures()
-    )
-  };
-}
-initSigPads();
-
-/* === SIG BADGES === */
 function syncSigBadges(){
   const hasClient = !!formState.sigs.client.dataUrl;
   const hasCoach  = !!formState.sigs.coach.dataUrl;
@@ -1012,31 +1011,11 @@ function syncSigBadges(){
   sigPads?.spec?.updateDebug?.();
 }
 
-/* === CLIENT SELECT === */
-function renderClientSelect(selectedId=null) {
-  const clients = getClients();
-  E.clientSelect.innerHTML = "";
-  if (!clients.length) {
-    const opt = document.createElement("option");
-    opt.value=""; opt.textContent="No clients loaded";
-    E.clientSelect.appendChild(opt);
-    return;
-  }
-  clients.forEach(c => {
-    const opt=document.createElement("option");
-    opt.value=c.id; opt.textContent=c.name;
-    E.clientSelect.appendChild(opt);
-  });
-  E.clientSelect.value = selectedId || clients[0].id;
-}
-
-/* === SNAPSHOT / APPLY === */
 function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build: BUILD_ID,
-    modeHint: MODE,
+    build:"2026-02-19__supabase_full_v1",
     clientId:cid,
     clientName:c?.name||"",
     planStartISO:c?.planStartISO||"",
@@ -1050,7 +1029,7 @@ function snapshot(){
     goals:getGoals(),
     additionalNotes:E.additionalNotes.value,
     lockState:formState.lockState,
-    unlock:{name:E.unlockName?.value||"", at:E.unlockAt?.value||""},
+    unlock:{name:E.unlockName.value, at:E.unlockAt.value},
     sigs:formState.sigs
   };
 }
@@ -1072,18 +1051,14 @@ function apply(data){
   E.additionalNotes.value=data.additionalNotes||"";
 
   formState.lockState=data.lockState||"unlocked";
-
-  if (isManager()) {
-    E.unlockName.value=data.unlock?.name||"";
-    E.unlockAt.value=data.unlock?.at||"";
-  }
+  E.unlockName.value=data.unlock?.name||"";
+  E.unlockAt.value=data.unlock?.at||"";
 
   formState.sigs = data.sigs || formState.sigs;
 
   E.clientPrinted.value=formState.sigs.client.printed||"";
   E.coachPrinted.value=formState.sigs.coach.printed||"";
-  if (isManager()) E.specPrinted.value=formState.sigs.spec.printed||"";
-
+  E.specPrinted.value=formState.sigs.spec.printed||"";
   E.clientSignedAt.textContent=formState.sigs.client.signedAt||"—";
   E.coachSignedAt.textContent=formState.sigs.coach.signedAt||"—";
   E.specSignedAt.textContent=formState.sigs.spec.signedAt||"—";
@@ -1093,7 +1068,6 @@ function apply(data){
   updateLockUI();
 }
 
-/* === AUTOSAVE === */
 let saveTimer=null;
 function autosave(){
   clearTimeout(saveTimer);
@@ -1106,7 +1080,39 @@ function autosave(){
   },150);
 }
 
-/* === LOAD TEMPLATE / SAVED === */
+/* ---------- sig pads init ---------- */
+let sigPads = null;
+function initSigPads() {
+  sigPads = {
+    client: createSigPad(
+      E.clientCanvas,
+      ()=>formState.sigs.client.dataUrl,
+      (d)=>formState.sigs.client.dataUrl=d,
+      ()=>formState.sigs.client.strokes,
+      (n)=>formState.sigs.client.strokes=n,
+      E.clientDebug
+    ),
+    coach: createSigPad(
+      E.coachCanvas,
+      ()=>formState.sigs.coach.dataUrl,
+      (d)=>formState.sigs.coach.dataUrl=d,
+      ()=>formState.sigs.coach.strokes,
+      (n)=>formState.sigs.coach.strokes=n,
+      E.coachDebug
+    ),
+    spec: createSigPad(
+      E.specCanvas,
+      ()=>formState.sigs.spec.dataUrl,
+      (d)=>formState.sigs.spec.dataUrl=d,
+      ()=>formState.sigs.spec.strokes,
+      (n)=>formState.sigs.spec.strokes=n,
+      E.specDebug
+    )
+  };
+}
+initSigPads();
+
+/* ---------- wiring ---------- */
 function loadClientTemplate(client){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
@@ -1125,16 +1131,9 @@ function loadClientTemplate(client){
     spec:{printed:"",signedAt:"",dataUrl:"",strokes:0}
   };
 
-  if (isManager()) {
-    E.unlockName.value="";
-    E.unlockAt.value="";
-    E.unlockPin.value="";
-  }
-
-  E.clientPrinted.value=""; E.coachPrinted.value=""; if (isManager()) E.specPrinted.value="";
+  E.clientPrinted.value=""; E.coachPrinted.value=""; E.specPrinted.value="";
   E.clientSignedAt.textContent="—"; E.coachSignedAt.textContent="—"; E.specSignedAt.textContent="—";
   sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
-
   syncSigBadges();
   updateLockUI();
   autosave();
@@ -1156,9 +1155,8 @@ function onClientChange(){
 }
 E.clientSelect.addEventListener("change", ()=>onClientChange());
 
-/* === INPUT WIRING === */
-E.addTask.addEventListener("click", ()=>{ if(!canEditForm()) return; addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); updateLockUI(); });
-E.addGoal.addEventListener("click", ()=>{ if(!canEditForm()) return; addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); updateLockUI(); });
+E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
+E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
 
 ["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
   el(id).addEventListener("input", autosave);
@@ -1167,11 +1165,8 @@ E.addGoal.addEventListener("click", ()=>{ if(!canEditForm()) return; addGoalRow(
 
 E.clientPrinted.addEventListener("input", ()=>{ formState.sigs.client.printed=E.clientPrinted.value.trim(); autosave(); });
 E.coachPrinted.addEventListener("input",  ()=>{ formState.sigs.coach.printed=E.coachPrinted.value.trim(); autosave(); });
-if (isManager()) {
-  E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
-}
+E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
 
-/* === EXPORT/IMPORT (manager only shown, but still protected) === */
 function download(filename,text){
   const blob=new Blob([text],{type:"application/json"});
   const url=URL.createObjectURL(blob);
@@ -1184,23 +1179,20 @@ E.saveNow.addEventListener("click", ()=>{
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
+
 E.exportJson.addEventListener("click", ()=>{
-  if (!isManager()) return;
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
   download(`TA_${safe}_${data.entryDateISO||"no_date"}.json`, JSON.stringify(data,null,2));
 });
 E.importJson.addEventListener("click", ()=>{
-  if (!isManager()) return;
   const raw=prompt("Paste JSON:");
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
 
-/* === CLIENT ADMIN (manager only) === */
+/* -------------------- CLIENT CRUD (LOCAL) -------------------- */
 function addOrUpdateClient(existingId=null){
-  if (!isManager()) return;
-
   const clients=getClients();
   const existing=existingId ? clients.find(c=>c.id===existingId) : null;
 
@@ -1236,6 +1228,8 @@ function addOrUpdateClient(existingId=null){
     saveClients(clients);
     renderClientSelect(existing.id);
     onClientChange();
+    // Also upsert to Supabase (best effort)
+    upsertClientToSupabase(payload).catch(()=>{});
     return;
   }
 
@@ -1243,11 +1237,12 @@ function addOrUpdateClient(existingId=null){
   saveClients(clients);
   renderClientSelect(payload.id);
   onClientChange();
+  upsertClientToSupabase(payload).catch(()=>{});
 }
+
 E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
 E.editClientBtn.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; addOrUpdateClient(cid); });
 E.demoBtn.addEventListener("click", ()=>{
-  if (!isManager()) return;
   saveClients([{
     id:"client_1",
     name:"Test Client A",
@@ -1261,9 +1256,7 @@ E.demoBtn.addEventListener("click", ()=>{
   onClientChange();
 });
 
-/* === WIPE (manager only) === */
 E.wipeAll.addEventListener("click", ()=>{
-  if (!isManager()) return;
   if(!confirm("Wipe ALL local data on this device?")) return;
   localStorage.removeItem(CLIENTS_KEY);
   Object.keys(localStorage).forEach(k=>{
@@ -1272,18 +1265,42 @@ E.wipeAll.addEventListener("click", ()=>{
   location.reload();
 });
 
-/* === SIGNING / LOCKING === */
+/* ---------- LOCK / UNLOCK ---------- */
+function lockEdits(){
+  formState.lockState = "locked";
+  updateLockUI();
+  autosave();
+}
+function unlockEdits(){
+  formState.lockState = "unlocked";
+  E.unlockAt.value = nowStamp();
+  updateLockUI();
+  autosave();
+}
+E.unlockBtn.addEventListener("click", ()=>{
+  const pin = (E.unlockPin.value || "").trim();
+  if(pin !== PIN_DEFAULT){
+    alert("Incorrect PIN.");
+    return;
+  }
+  unlockEdits();
+  setSaveState("Unlocked for edits","good");
+});
+E.relockBtn.addEventListener("click", ()=>{
+  lockEdits();
+  setSaveState("Re-locked","good");
+});
+
+/* ---------- SIGNING ---------- */
 function finalizeClientSignature(){
   formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
   formState.sigs.client.signedAt = nowStamp();
   E.clientSignedAt.textContent = formState.sigs.client.signedAt;
-
-  // HARD RULE: client sign locks form + client signature
   formState.lockState = "locked";
   updateLockUI();
   syncSigBadges();
   autosave();
-  setSaveState("Client signed. Locked + timestamped.","good");
+  setSaveState("Client signed. Form locked.","good");
 }
 function finalizeCoachSignature(){
   formState.sigs.coach.printed = (E.coachPrinted.value||"").trim();
@@ -1292,24 +1309,19 @@ function finalizeCoachSignature(){
   syncSigBadges(); autosave(); setSaveState("Coach signed.","good");
 }
 function finalizeSpecSignature(){
-  if (!isManager()) return;
   formState.sigs.spec.printed = (E.specPrinted.value||"").trim();
   formState.sigs.spec.signedAt = nowStamp();
   E.specSignedAt.textContent = formState.sigs.spec.signedAt;
-
-  // Manager final makes everything read-only (including coach/spec re-sign)
   formState.lockState = "final";
   updateLockUI();
-  syncSigBadges(); autosave(); setSaveState("Manager approved. FINAL.","good");
+  syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
 }
 
-E.clientClear.addEventListener("click", ()=>{ if(!canEditClientSignature()) return; sigPads.client.clear(); autosave(); syncSigBadges(); });
-E.coachClear.addEventListener("click",  ()=>{ if(!canEditOtherSignatures()) return; sigPads.coach.clear();  autosave(); syncSigBadges(); });
-E.specClear.addEventListener("click",   ()=>{ if(!canEditOtherSignatures()) return; sigPads.spec.clear();   autosave(); syncSigBadges(); });
+E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); autosave(); syncSigBadges(); });
+E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  autosave(); syncSigBadges(); });
+E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   autosave(); syncSigBadges(); });
 
 E.clientSign.addEventListener("click", ()=>{
-  if(!canEditClientSignature()) return;
-
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
@@ -1322,8 +1334,6 @@ E.clientSign.addEventListener("click", ()=>{
 });
 
 E.coachSign.addEventListener("click", ()=>{
-  if(!canEditOtherSignatures()) return;
-
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
@@ -1336,62 +1346,165 @@ E.coachSign.addEventListener("click", ()=>{
 });
 
 E.specFinal.addEventListener("click", ()=>{
-  if(!isManager()) return;
-  if(!canEditOtherSignatures()) return;
-
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
   sigPads.spec.commit();
-  if((formState.sigs.spec.strokes||0) <= 0) return alert("Manager signature is blank.");
-  if(!(E.specPrinted.value||"").trim()) return alert("Manager printed name is required.");
+  if((formState.sigs.spec.strokes||0) <= 0) return alert("Specialist signature is blank.");
+  if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
   if(!formState.sigs.spec.dataUrl) return alert("Signature failed to capture. Try signing again.");
 
   finalizeSpecSignature();
 });
 
-/* === UNLOCK: MANAGER ONLY === */
-function unlockEdits(){
-  formState.lockState = "unlocked";
-  E.unlockAt.value = nowStamp();
-  updateLockUI();
-  autosave();
-}
-function relockEdits(){
-  formState.lockState = "locked";
-  updateLockUI();
-  autosave();
+/* -------------------- SUPABASE: CLIENTS + SUBMIT -------------------- */
+function dataURLToBlob(dataUrl){
+  const parts = (dataUrl||"").split(",");
+  if (parts.length < 2) return null;
+  const mime = (parts[0].match(/data:(.*);base64/)||[])[1] || "application/octet-stream";
+  const bin = atob(parts[1]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
 }
 
-E.unlockBtn.addEventListener("click", ()=>{
-  if(!isManager()) return;
-  if(formState.lockState !== "locked") return;
-
-  const pin = (E.unlockPin.value || "").trim();
-  if(pin !== PIN_DEFAULT){
-    alert("Incorrect PIN.");
-    return;
-  }
-  if(!(E.unlockName.value||"").trim()){
-    alert("Manager name is required to unlock.");
-    return;
+/* Pull clients from Supabase, store locally in the existing client format */
+async function reloadClientsFromSupabase(){
+  await refreshSessionAndUI();
+  if (!currentUser) {
+    showAuthOverlay(true);
+    throw new Error("Not signed in.");
   }
 
-  unlockEdits();
-  setSaveState("Unlocked for corrections (Manager).","good");
+  // expects columns: id, display_name, plan_start, plan_end, work_location
+  const { data, error } = await sb
+    .from("clients")
+    .select("id, display_name, plan_start, plan_end, work_location")
+    .order("display_name", { ascending: true });
+
+  if (error) throw error;
+
+  const mapped = (data||[]).map(row => ({
+    id: String(row.id),
+    name: row.display_name || ("Client " + row.id),
+    planStartISO: (row.plan_start ? String(row.plan_start) : ""),
+    planEndISO: (row.plan_end ? String(row.plan_end) : ""),
+    workLocation: row.work_location || "",
+    tasks: DEFAULT_TASKS.slice(),
+    goals: DEFAULT_GOALS.slice()
+  }));
+
+  saveClients(mapped);
+  renderClientSelect(mapped[0]?.id || null);
+  onClientChange();
+  setSaveState(`Loaded ${mapped.length} client(s) from Supabase`, "good");
+}
+
+E.reloadClientsSupabase.addEventListener("click", async ()=>{
+  try{
+    setSaveState("Loading clients (Supabase)…", "warn");
+    await reloadClientsFromSupabase();
+  } catch (e){
+    setSaveState("Client load failed", "bad");
+    alert(e?.message || String(e));
+  }
 });
 
-E.relockBtn.addEventListener("click", ()=>{
-  if(!isManager()) return;
-  if(formState.lockState !== "unlocked") return;
-  relockEdits();
-  setSaveState("Re-locked.","good");
+/* Best-effort upsert: when you add/edit locally, mirror to Supabase */
+async function upsertClientToSupabase(localClient){
+  await refreshSessionAndUI();
+  if (!currentUser) return;
+
+  // We do a simple insert; if you want true upsert, you need a unique constraint.
+  // If clients.id in Supabase is bigint/uuid, we cannot force it to match local ids.
+  // So we insert by display_name and dates/location.
+  const payload = {
+    display_name: localClient.name,
+    plan_start: localClient.planStartISO || null,
+    plan_end: localClient.planEndISO || null,
+    work_location: localClient.workLocation || null
+  };
+
+  const { error } = await sb.from("clients").insert([payload]);
+  if (error) throw error;
+}
+
+async function uploadSignatureIfPresent(kind, dataUrl, clientName, entryDateISO){
+  if (!dataUrl) return null;
+  const blob = dataURLToBlob(dataUrl);
+  if (!blob) return null;
+
+  const safeClient = (clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const safeDate = (entryDateISO||"no_date").replace(/[^0-9\-]/g,"");
+  const filename = `${safeClient}/${safeDate}/${kind}_${Date.now()}.png`;
+
+  const { data, error } = await sb.storage.from(SIG_BUCKET).upload(filename, blob, {
+    contentType: "image/png",
+    upsert: false
+  });
+  if (error) throw error;
+  return data?.path || filename;
+}
+
+async function submitToSupabase(){
+  await refreshSessionAndUI();
+  if (!currentUser) {
+    showAuthOverlay(true);
+    throw new Error("You must be signed in to submit.");
+  }
+
+  const v = validateRequiredForSigning();
+  if (!v.ok) throw new Error("Fix required fields before submitting.");
+
+  const snap = snapshot();
+
+  // Upload signatures (if present)
+  const clientSigPath = await uploadSignatureIfPresent("client", snap.sigs?.client?.dataUrl, snap.clientName, snap.entryDateISO);
+  const coachSigPath  = await uploadSignatureIfPresent("coach",  snap.sigs?.coach?.dataUrl,  snap.clientName, snap.entryDateISO);
+  const specSigPath   = await uploadSignatureIfPresent("spec",   snap.sigs?.spec?.dataUrl,   snap.clientName, snap.entryDateISO);
+
+  // Find matching client in Supabase by display_name (simple for now)
+  const { data: crows, error: cerr } = await sb
+    .from("clients")
+    .select("id, display_name")
+    .eq("display_name", snap.clientName)
+    .limit(1);
+
+  if (cerr) throw cerr;
+
+  const supaClientId = crows?.[0]?.id;
+  if (!supaClientId) {
+    throw new Error("Client not found in Supabase. Click 'Reload Clients (Supabase)' or add the client in Supabase first.");
+  }
+
+  const record = {
+    client_id: supaClientId,
+    coach_user_id: currentUser.id,
+    data: snap,
+    client_signature_path: clientSigPath,
+    coach_signature_path: coachSigPath,
+    spec_signature_path: specSigPath
+  };
+
+  const { error } = await sb.from("ta_records").insert([record]);
+  if (error) throw error;
+
+  setSaveState("Submitted to Supabase", "good");
+}
+
+E.submitSupabase.addEventListener("click", async ()=>{
+  try{
+    setSaveState("Submitting…", "warn");
+    await submitToSupabase();
+    alert("Submitted to Supabase successfully.");
+  } catch (e){
+    setSaveState("Submit failed", "bad");
+    alert(e?.message || String(e));
+  }
 });
 
-/* === INIT === */
+/* ---------- init ---------- */
 (function init(){
-  // Coach-mode safety: if no clients exist, they can’t add them
-  // so show a blunt message.
   renderClientSelect();
   const clients=getClients();
 
@@ -1401,12 +1514,14 @@ E.relockBtn.addEventListener("click", ()=>{
     setSaveState("Ready","good");
   } else {
     E.entryDateUS.value=todayUS();
-    setSaveState(isManager() ? "No clients loaded (add one)" : "No clients loaded (manager must add clients)", "bad");
+    setSaveState("No clients loaded","bad");
     updateLockUI();
   }
-
   syncSigBadges();
   updateLockUI();
+
+  // auth bootstrap
+  refreshSessionAndUI().catch(()=>{});
 })();
 </script>
 </body>
