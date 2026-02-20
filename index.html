@@ -351,6 +351,9 @@
       <button class="secondary" id="importJson" type="button">Import JSON</button>
       <button class="ok" id="submitSupabase" type="button">Submit to Supabase (v2)</button>
       <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
+      <button class="ok" id="submitSupabase" type="button">Submit to Supabase</button>
+      <button class="secondary" id="reviewLoad" type="button">Specialist: Load TA by ID</button>
+      <button class="secondary warn" id="reviewKickBack" type="button">Specialist: Kick Back</button>
     </div>
   </div>
 </div>
@@ -375,7 +378,16 @@ let currentUser = null;
 const CLIENTS_KEY = "witco_clients_required_v1";
 const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
 const PIN_DEFAULT = "0413";
+// Specialist allowlist (only these emails can specialist-sign / review)
+const SPECIALIST_EMAILS = ["gmurfitt@witcoinc.net"];
 
+let currentUserEmail = "";
+let isSpecialist = false;
+
+// Review mode variables (specialist only)
+let appMode = "coach";        // "coach" or "review"
+let currentRecordId = null;   // ta_records_v2.id
+let currentRecordStatus = ""; // submitted | approved | needs_correction
 const DEFAULT_TASKS = [
   "Task 1",
   "Task 2",
@@ -445,6 +457,9 @@ const E = {
   exportJson: el("exportJson"),
   importJson: el("importJson"),
   wipeAll: el("wipeAll"),
+  submitSupabase: el("submitSupabase"),
+  reviewLoad: el("reviewLoad"),
+  reviewKickBack: el("reviewKickBack"),
 
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
@@ -1008,6 +1023,18 @@ function syncSigBadges(){
   sigPads?.client?.updateDebug?.();
   sigPads?.coach?.updateDebug?.();
   sigPads?.spec?.updateDebug?.();
+    // Enforce signing order and specialist restrictions
+  const hasClient = !!formState.sigs.client.dataUrl;
+  const hasCoach  = !!formState.sigs.coach.dataUrl;
+
+  // Coach can only sign after client signed
+  E.coachSign.disabled = !hasClient;
+
+  // Specialist can only sign in review mode AND only if client+coach signed
+  const specAllowed = hasClient && hasCoach && isSpecialist && appMode === "review";
+  E.specFinal.disabled = !specAllowed;
+  E.specCanvas.style.pointerEvents = specAllowed ? "auto" : "none";
+  E.specPrinted.disabled = !specAllowed;
 }
 
 function snapshot(){
@@ -1206,6 +1233,121 @@ E.importJson.addEventListener("click", ()=>{
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
+  E.submitSupabase.addEventListener("click", async ()=>{
+  try {
+    // Require both signatures before submit
+    const v = validateRequiredForSigning();
+    if (!v.ok) return;
+
+    if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
+    if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
+
+    // Hard-lock locally immediately
+    formState.lockState = "final";
+    updateLockUI();
+
+    // Build record
+    const snap = snapshot();
+
+    // IMPORTANT: ensure JSON object, not weird references
+    const cleanSnap = JSON.parse(JSON.stringify(snap));
+
+    // You need a Supabase clients table mapping, but if you don't have it yet,
+    // we can store local clientId for now.
+    const clientId = cleanSnap.clientId || "";
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) return alert("Not logged in.");
+
+    const record = {
+      client_id: String(clientId),
+      coach_user_id: uid,
+      data: cleanSnap,
+      status: "submitted",
+      submitted_at: new Date().toISOString(),
+      client_signature_path: cleanSnap?.sigs?.client?.storagePath || null,
+      coach_signature_path: cleanSnap?.sigs?.coach?.storagePath || null,
+      spec_signature_path: null
+    };
+
+    const { error } = await sb.from("ta_records_v2").insert([record]);
+    if (error) throw error;
+
+    // Freeze everything after submit
+    setSaveState("Submitted. Locked for specialist review.", "good");
+    E.submitSupabase.disabled = true;
+    E.clientSign.disabled = true;
+    E.coachSign.disabled = true;
+    E.specFinal.disabled = true;
+  } catch (e) {
+    // If submit fails, unlock back so they can try again
+    formState.lockState = "locked";
+    updateLockUI();
+    alert("Submit failed: " + (e?.message || e));
+  }
+});
+E.reviewLoad.addEventListener("click", async ()=>{
+  if (!isSpecialist) return alert("Not allowed.");
+
+  const rid = prompt("Paste TA record ID (ta_records_v2.id):");
+  if (!rid) return;
+
+  try {
+    const { data, error } = await sb
+      .from("ta_records_v2")
+      .select("*")
+      .eq("id", rid)
+      .single();
+
+    if (error) throw error;
+
+    apply(data.data);
+    appMode = "review";
+    currentRecordId = data.id;
+    currentRecordStatus = data.status || "submitted";
+
+    // Lock by default; specialist can unlock via PIN section (we’ll restrict next)
+    formState.lockState = "locked";
+    updateLockUI();
+
+    setSaveState("Loaded for specialist review", "good");
+    syncSigBadges();
+  } catch (e) {
+    alert("Load failed: " + (e?.message || e));
+  }
+});
+
+E.reviewKickBack.addEventListener("click", async ()=>{
+  if (!isSpecialist || appMode !== "review" || !currentRecordId) {
+    return alert("Kick back is only available during specialist review.");
+  }
+
+  const reason = prompt("Reason for correction:");
+  if (!reason) return;
+
+  try {
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id || null;
+
+    const { error } = await sb
+      .from("ta_records_v2")
+      .update({
+        data: JSON.parse(JSON.stringify(snapshot())),
+        status: "needs_correction",
+        correction_reason: reason,
+        needs_correction_at: new Date().toISOString(),
+        needs_correction_by: uid
+      })
+      .eq("id", currentRecordId);
+
+    if (error) throw error;
+
+    currentRecordStatus = "needs_correction";
+    setSaveState("Kicked back for correction", "good");
+  } catch (e) {
+    alert("Kick back failed: " + (e?.message || e));
+  }
+});  
 
 /* -------------------- CLIENT CRUD (LOCAL) -------------------- */
 function addOrUpdateClient(existingId=null){
@@ -1331,6 +1473,30 @@ function finalizeSpecSignature(){
   formState.lockState = "final";
   updateLockUI();
   syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
+    // Persist specialist signature + approval to Supabase
+  (async ()=>{
+    try {
+      if (!isSpecialist || appMode !== "review" || !currentRecordId) return;
+
+      const { data: userData } = await sb.auth.getUser();
+      const uid = userData?.user?.id || null;
+
+      const { error } = await sb
+        .from("ta_records_v2")
+        .update({
+          data: JSON.parse(JSON.stringify(snapshot())),
+          status: "approved",
+          approved_at: new Date().toISOString(),
+          approved_by: uid
+        })
+        .eq("id", currentRecordId);
+
+      if (error) throw error;
+      currentRecordStatus = "approved";
+    } catch (e) {
+      alert("Signed locally, but failed to update Supabase: " + (e?.message || e));
+    }
+  })();
 }
 
 E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); autosave(); syncSigBadges(); });
@@ -1521,8 +1687,16 @@ E.submitSupabase.addEventListener("click", async ()=>{
 });
 
 /* ---------- init ---------- */
-(function init(){
+(async function init(){
   renderClientSelect();
+    // Determine current user email (Supabase auth)
+  try {
+    if (window.sb && sb?.auth?.getUser) {
+      const { data } = await sb.auth.getUser();
+      currentUserEmail = (data?.user?.email || "").toLowerCase();
+      isSpecialist = SPECIALIST_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
+    }
+  } catch {}
   const clients=getClients();
 
   if(clients.length){
