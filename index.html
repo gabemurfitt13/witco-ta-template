@@ -1024,9 +1024,7 @@ function syncSigBadges(){
   sigPads?.coach?.updateDebug?.();
   sigPads?.spec?.updateDebug?.();
     // Enforce signing order and specialist restrictions
-  const hasClient = !!formState.sigs.client.dataUrl;
-  const hasCoach  = !!formState.sigs.coach.dataUrl;
-
+  
   // Coach can only sign after client signed
   E.coachSign.disabled = !hasClient;
 
