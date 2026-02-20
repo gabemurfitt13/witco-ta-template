@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Medicaid Supported Employment Data Sheet</title>
 
-  <!-- Supabase JS (v2) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; background: #f6f7fb; color: #111; }
@@ -19,7 +16,6 @@
     .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
     .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
     .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
-    .pill.warn { background:#fffbcc; border-color:#f3e58a; color:#5a4a00; }
 
     .build {
       display:inline-block;
@@ -89,6 +85,13 @@
     }
     .sigDebug { font-size: 11px; color:#666; margin-top:6px; }
 
+    /* Hard lock: make client canvas truly non-interactive */
+    .sigLocked {
+      pointer-events: none !important;
+      opacity: 0.92;
+      filter: grayscale(0.15);
+    }
+
     .invalid {
       border-color:#b42318 !important;
       box-shadow: 0 0 0 3px rgba(180,35,24,.10);
@@ -107,10 +110,8 @@
     .errbox ul { margin:6px 0 0 18px; }
     .errbox li { margin:2px 0; }
 
-    .authWrap { max-width: 520px; margin: 20px auto; }
-    .authTitle { font-size: 16px; margin: 0 0 6px; }
-    .muted { color:#666; font-size:12px; line-height:1.35; }
-    .divider { height:1px; background:#eef0f6; margin:12px 0; }
+    /* Role-based hiding */
+    .hidden { display:none !important; }
 
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
@@ -128,49 +129,13 @@
 
 <body>
 <div class="wrap">
-
-  <!-- AUTH CARD -->
-  <div class="card authWrap" id="authCard">
-    <h2 class="authTitle">Sign in</h2>
-    <div class="muted">
-      Log in to save TAs centrally.
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="grid">
-      <div class="col-12">
-        <label>Email</label>
-        <input id="authEmail" type="email" autocomplete="username" placeholder="you@company.org" />
-      </div>
-      <div class="col-12">
-        <label>Password</label>
-        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
-      </div>
-      <div class="col-12">
-        <div class="btnbar">
-          <button id="loginBtn" type="button">Login</button>
-          <button class="secondary" id="logoutBtn" type="button" style="display:none;">Logout</button>
-          <span class="pill bad" id="authStatus">Not signed in</span>
-        </div>
-      </div>
-      <div class="col-12">
-        <div class="errbox" id="authErrorBox" style="display:none;">
-          <b>Auth error:</b>
-          <div id="authErrorText"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- APP CARD -->
-  <div class="card" id="appCard" style="display:none;">
+  <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-19__supabase_fix_v2</span>
+      <span class="build" id="buildBadge"></span>
+      <span class="pill" id="modePill">Mode: —</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
-      <span class="pill warn" id="userPill">User: —</span>
     </div>
 
     <div id="errorBox" class="errbox">
@@ -182,10 +147,10 @@
       <div class="col-6">
         <label>Client</label>
         <select id="clientSelect"></select>
-        <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+        <div class="manageRow" id="clientAdminRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
           <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
-          <button class="secondary tiny" id="reloadClientsBtn" type="button">Reload Clients</button>
+          <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
         </div>
       </div>
 
@@ -264,7 +229,9 @@
 
     <div class="rowhead">
       <h2>Signatures</h2>
-      <div class="hint">Client signature locks. Required fields are enforced before any signing.</div>
+      <div class="hint">
+        Client sign locks + timestamps. Only Manager unlock (PIN) allows corrections.
+      </div>
     </div>
 
     <div class="sigGrid">
@@ -294,8 +261,8 @@
         </div>
       </div>
 
-      <div class="sigCard">
-        <div class="sigTop"><b>Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
+      <div class="sigCard" id="managerOnlySpecSig">
+        <div class="sigTop"><b>Manager / Specialist</b><span class="pill bad" id="specSigStatus">Not signed</span></div>
         <canvas class="sigcanvas" id="specCanvas"></canvas>
         <div class="sigDebug" id="specDebug">strokes: 0 · data: 0</div>
         <label style="margin-top:8px;">Printed name</label>
@@ -303,63 +270,71 @@
         <div class="sigMeta">Signed at: <span id="specSignedAt">—</span></div>
         <div class="btnbar" style="margin-top:8px;">
           <button class="secondary tiny" id="specClear" type="button">Clear</button>
-          <button class="tiny warn" id="specFinal" type="button">Specialist Sign (FINAL)</button>
+          <button class="tiny warn" id="specFinal" type="button">Manager Final Approve (FINAL)</button>
         </div>
       </div>
     </div>
 
-    <div class="rowhead">
-      <h2>Unlock for Edits (PIN)</h2>
-      <div class="hint">PIN only unlocks editing after client sign. Does not block coach signing.</div>
-    </div>
+    <div id="unlockSection">
+      <div class="rowhead">
+        <h2>Unlock for Corrections (Manager PIN)</h2>
+        <div class="hint">Unlock edits only when a client-signed form needs correction.</div>
+      </div>
 
-    <div class="grid" style="align-items:end;">
-      <div class="col-4">
-        <label>Specialist Name</label>
-        <input id="unlockName" placeholder="Name" />
-      </div>
-      <div class="col-4">
-        <label>PIN</label>
-        <input id="unlockPin" type="password" placeholder="0413" />
-      </div>
-      <div class="col-4">
-        <label>Unlocked at</label>
-        <input id="unlockAt" readonly />
-      </div>
-      <div class="col-12">
-        <div class="btnbar">
-          <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
-          <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
+      <div class="grid" style="align-items:end;">
+        <div class="col-4">
+          <label>Manager Name</label>
+          <input id="unlockName" placeholder="Name" />
+        </div>
+        <div class="col-4">
+          <label>PIN</label>
+          <input id="unlockPin" type="password" placeholder="0413" />
+        </div>
+        <div class="col-4">
+          <label>Unlocked at</label>
+          <input id="unlockAt" readonly />
+        </div>
+        <div class="col-12">
+          <div class="btnbar">
+            <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
+            <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="btnbar" style="margin-top:10px;">
+    <div class="btnbar" id="adminBar" style="margin-top:10px;">
       <button id="saveNow" type="button">Save</button>
       <button class="secondary" id="exportJson" type="button">Export JSON</button>
       <button class="secondary" id="importJson" type="button">Import JSON</button>
       <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
-
-      <span style="flex:1 1 auto"></span>
-
-      <button class="ok" id="submitSupabase" type="button">Submit to Supabase</button>
     </div>
   </div>
 </div>
 
 <script>
-/* BUILD_ID: 2026-02-19__supabase_fix_v2 */
+/* === BUILD / VERSION === */
+const BUILD_ID = "2026-02-19__role_modes_coach_manager_lock_on_client_sign_v1";
+document.getElementById("buildBadge").textContent = "BUILD_ID: " + BUILD_ID;
 
-const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
+/* === ROLE MODE ===
+  coach: data capture only
+  manager: approve + admin + unlock + templates
+*/
+function getMode() {
+  const p = new URLSearchParams(location.search);
+  const m = (p.get("mode") || "coach").toLowerCase();
+  return (m === "manager") ? "manager" : "coach";
+}
+const MODE = getMode();
+document.getElementById("modePill").textContent = "Mode: " + (MODE === "manager" ? "Manager" : "Coach");
 
-// Bulletproof client: won't crash even if script loads twice
-window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-var sb = window.__sb;
-
-const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
+/* === CONFIG === */
+const CLIENTS_KEY = "witco_clients_role_v1";
+const STORAGE_KEY_BASE = "witco_supported_employment_role_v1";
 const PIN_DEFAULT = "0413";
 
+/* === DEFAULTS === */
 const DEFAULT_TASKS = [
   "Clock in & out",
   "Bag groceries for customers",
@@ -373,20 +348,11 @@ const DEFAULT_GOALS = [
   "When walking the sales floor, client will independently recognize when baskets need restocked and complete the task 90% of the time for 3 consecutive months."
 ];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
+
 const el = (id) => document.getElementById(id);
 
+/* === ELEMENTS === */
 const E = {
-  authCard: el("authCard"),
-  appCard: el("appCard"),
-  authEmail: el("authEmail"),
-  authPass: el("authPass"),
-  loginBtn: el("loginBtn"),
-  logoutBtn: el("logoutBtn"),
-  authStatus: el("authStatus"),
-  authErrorBox: el("authErrorBox"),
-  authErrorText: el("authErrorText"),
-  userPill: el("userPill"),
-
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
   planEndUS: el("planEndUS"),
@@ -432,6 +398,7 @@ const E = {
   coachDebug: el("coachDebug"),
   specDebug: el("specDebug"),
 
+  unlockSection: el("unlockSection"),
   unlockName: el("unlockName"),
   unlockPin: el("unlockPin"),
   unlockAt: el("unlockAt"),
@@ -445,19 +412,19 @@ const E = {
 
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
-  reloadClientsBtn: el("reloadClientsBtn"),
+  demoBtn: el("demoBtn"),
 
-  submitSupabase: el("submitSupabase"),
+  clientAdminRow: el("clientAdminRow"),
+  adminBar: el("adminBar"),
+  managerOnlySpecSig: el("managerOnlySpecSig"),
 
   errorBox: el("errorBox"),
   errorList: el("errorList")
 };
 
-let currentUser = null;
-let clientsCache = [];
-
+/* === STATE === */
 const formState = {
-  lockState: "unlocked",
+  lockState: "unlocked", // unlocked | locked | final
   sigs: {
     client: { printed:"", signedAt:"", dataUrl:"", strokes:0 },
     coach:  { printed:"", signedAt:"", dataUrl:"", strokes:0 },
@@ -467,8 +434,9 @@ const formState = {
 
 function setSaveState(text, kind="") {
   E.saveState.textContent = text;
-  E.saveState.classList.remove("bad","good","warn");
-  if (kind) E.saveState.classList.add(kind);
+  E.saveState.classList.remove("bad","good");
+  if (kind==="bad") E.saveState.classList.add("bad");
+  if (kind==="good") E.saveState.classList.add("good");
 }
 function setLockPill() {
   E.lockPill.classList.remove("bad","good");
@@ -477,23 +445,7 @@ function setLockPill() {
   if (formState.lockState === "final")    { E.lockPill.textContent="FINAL"; E.lockPill.classList.add("bad"); }
 }
 
-function clearValidationUI() {
-  document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
-  E.errorList.innerHTML = "";
-  E.errorBox.style.display = "none";
-}
-function showErrors(errors) {
-  E.errorList.innerHTML = "";
-  errors.forEach(e => {
-    const li = document.createElement("li");
-    li.textContent = e.msg;
-    E.errorList.appendChild(li);
-    if (e.node) e.node.classList.add("invalid");
-  });
-  E.errorBox.style.display = errors.length ? "block" : "none";
-  if (errors.length) E.errorBox.scrollIntoView({ behavior:"smooth", block:"start" });
-}
-
+/* === DATE HELPERS (US) === */
 function usToISO(us) {
   const s = (us || "").trim();
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
@@ -516,10 +468,14 @@ E.entryDateUS.addEventListener("input", () => {
   else E.entryDateUS.value = v;
 });
 
+/* === STORAGE === */
 function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
+function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
+function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
+function getClientById(id) { return getClients().find(c => c.id === id); }
 function currentClientId() { return E.clientSelect.value || ""; }
-function getClientById(id) { return clientsCache.find(c => c.id === id); }
 
+/* === TIME === */
 function minutesBetween(t1,t2){
   if(!t1||!t2) return null;
   const [h1,m1]=t1.split(":").map(Number);
@@ -540,6 +496,7 @@ function recalcTotalTime(){
 E.timeIn.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
 E.timeOut.addEventListener("input", ()=>{ recalcTotalTime(); autosave(); });
 
+/* === TABLE BUILDERS === */
 function makeSupportSelect(value=""){
   const s=document.createElement("select");
   SUPPORT_LEVELS.forEach(v=>{
@@ -549,6 +506,10 @@ function makeSupportSelect(value=""){
     s.appendChild(o);
   });
   return s;
+}
+function autosizeTA(ta){
+  ta.style.height="auto";
+  ta.style.height=(ta.scrollHeight)+"px";
 }
 
 function addTaskRow(tbody, rowData){
@@ -570,7 +531,7 @@ function addTaskRow(tbody, rowData){
 
   const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
   const btn=document.createElement("button");
-  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
+  btn.type="button"; btn.className="secondary tiny removeTaskBtn"; btn.textContent="Remove";
   btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
   tdRemove.appendChild(btn);
 
@@ -604,17 +565,13 @@ function addPromptLine(container, promptData){
   cnt.value = (promptData?.count ?? 1);
 
   const rm=document.createElement("button");
-  rm.type="button"; rm.className="secondary tiny"; rm.textContent="X";
+  rm.type="button"; rm.className="secondary tiny removePromptBtn"; rm.textContent="X";
   rm.addEventListener("click", ()=>{ line.remove(); autosave(); });
 
   [sel,cnt].forEach(n=>{ n.addEventListener("input", autosave); n.addEventListener("change", autosave); });
 
   line.appendChild(sel); line.appendChild(cnt); line.appendChild(rm);
   container.appendChild(line);
-}
-function autosizeTA(ta){
-  ta.style.height="auto";
-  ta.style.height=(ta.scrollHeight)+"px";
 }
 function addGoalRow(tbody, rowData){
   const tr=document.createElement("tr");
@@ -632,7 +589,7 @@ function addGoalRow(tbody, rowData){
   else addPromptLine(wrap,{code:"",count:1});
 
   const addP=document.createElement("button");
-  addP.type="button"; addP.className="secondary tiny"; addP.textContent="+ Prompt";
+  addP.type="button"; addP.className="secondary tiny addPromptBtn"; addP.textContent="+ Prompt";
   addP.addEventListener("click", ()=>{ addPromptLine(wrap,{code:"",count:1}); autosave(); });
 
   tdPrompts.appendChild(wrap);
@@ -645,7 +602,7 @@ function addGoalRow(tbody, rowData){
 
   const tdRemove=document.createElement("td"); tdRemove.setAttribute("data-label","Remove");
   const btn=document.createElement("button");
-  btn.type="button"; btn.className="secondary tiny"; btn.textContent="Remove";
+  btn.type="button"; btn.className="secondary tiny removeGoalBtn"; btn.textContent="Remove";
   btn.addEventListener("click", ()=>{ tr.remove(); autosave(); });
   tdRemove.appendChild(btn);
 
@@ -675,6 +632,23 @@ function setGoals(data){
   (data||[]).forEach(d=>addGoalRow(E.goalsBody,d));
 }
 
+/* === VALIDATION === */
+function clearValidationUI() {
+  document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
+  E.errorList.innerHTML = "";
+  E.errorBox.style.display = "none";
+}
+function showErrors(errors) {
+  E.errorList.innerHTML = "";
+  errors.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = e.msg;
+    E.errorList.appendChild(li);
+    if (e.node) e.node.classList.add("invalid");
+  });
+  E.errorBox.style.display = errors.length ? "block" : "none";
+  if (errors.length) E.errorBox.scrollIntoView({ behavior:"smooth", block:"start" });
+}
 function validateRequiredForSigning() {
   clearValidationUI();
   const errors = [];
@@ -693,6 +667,7 @@ function validateRequiredForSigning() {
   if (!E.timeIn.value) errors.push({ msg: "Time In is required.", node: E.timeIn });
   if (!E.timeOut.value) errors.push({ msg: "Time Out is required.", node: E.timeOut });
 
+  // Tasks: if Task title exists, require Support and Note
   const taskRows = [...E.tasksBody.querySelectorAll("tr")];
   taskRows.forEach((tr, idx) => {
     const inputs = tr.querySelectorAll("input, select");
@@ -706,6 +681,7 @@ function validateRequiredForSigning() {
     }
   });
 
+  // Goals: if Goal title exists, require prompt(s) code+count AND anecdotal record
   const goalRows = [...E.goalsBody.querySelectorAll("tr")];
   goalRows.forEach((tr, idx) => {
     const tas = tr.querySelectorAll("textarea");
@@ -729,6 +705,20 @@ function validateRequiredForSigning() {
         errors.push({ msg: `Goal ${idx+1}: At least one prompt (code + count) is required when a goal is listed.`, node: firstSel || tr });
         tr.querySelectorAll(".supportLine select").forEach(s => s.classList.add("invalid"));
         tr.querySelectorAll(".supportLine input[type='number']").forEach(n => n.classList.add("invalid"));
+      } else {
+        lines.forEach((line, j) => {
+          const sel = line.querySelector("select");
+          const cnt = line.querySelector('input[type="number"]');
+          const code = (sel?.value || "").trim();
+          const count = parseInt(cnt?.value || "0", 10) || 0;
+          const any = code || count;
+          const ok = code && count > 0;
+          if (any && !ok) {
+            errors.push({ msg: `Goal ${idx+1}: Prompt line ${j+1} must have BOTH code and count.`, node: sel || cnt });
+            if (sel) sel.classList.add("invalid");
+            if (cnt) cnt.classList.add("invalid");
+          }
+        });
       }
     }
   });
@@ -737,7 +727,7 @@ function validateRequiredForSigning() {
   return { ok: errors.length === 0, errors };
 }
 
-/* ---------- SIGNATURE PAD ---------- */
+/* === SIGNATURE PAD CORE === */
 function sizeCanvasToCSS(canvas) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -747,7 +737,7 @@ function sizeCanvasToCSS(canvas) {
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
-function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl) {
+function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl, canDrawFn) {
   const ctx = canvas.getContext("2d");
   let drawing = false;
   let last = null;
@@ -786,8 +776,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     if (!r.width || !r.height) return;
     if (getStrokes() <= 0) { setData(""); updateDebug(); return; }
     try {
-      const url = canvas.toDataURL("image/png");
-      setData(url);
+      setData(canvas.toDataURL("image/png"));
     } catch {
       const tmp = document.createElement("canvas");
       tmp.width = Math.max(1, Math.round(r.width));
@@ -803,7 +792,12 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  function startAt(p) { sizeCanvasToCSS(canvas); drawing = true; last = p; }
+  function startAt(p) {
+    if (!canDrawFn()) return;
+    sizeCanvasToCSS(canvas);
+    drawing = true;
+    last = p;
+  }
   function moveTo(p) {
     if (!drawing) return;
     ctx.lineWidth = 2;
@@ -860,19 +854,109 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
 
 function nowStamp(){ return new Date().toLocaleString(); }
 
-function setEditingEnabled(enabled){
-  [E.workLocation,E.entryDateUS,E.timeIn,E.timeOut,E.additionalNotes].forEach(n=>n.disabled=!enabled);
-  E.tasksBody.querySelectorAll("input,select,button").forEach(n=>n.disabled=!enabled);
-  E.goalsBody.querySelectorAll("textarea,select,input,button").forEach(n=>n.disabled=!enabled);
-  E.addTask.disabled=!enabled;
-  E.addGoal.disabled=!enabled;
-  E.saveNow.disabled=!enabled;
+/* === LOCK LOGIC === */
+function isManager() { return MODE === "manager"; }
+
+function canEditForm() {
+  // Form edits only when unlocked
+  return formState.lockState === "unlocked";
 }
-function updateLockUI(){
-  setLockPill();
-  setEditingEnabled(formState.lockState==="unlocked");
+function canEditClientSignature() {
+  // Client signature only editable when unlocked
+  return formState.lockState === "unlocked";
+}
+function canEditOtherSignatures() {
+  // Coach and Manager signatures allowed unless FINAL
+  return formState.lockState !== "final";
 }
 
+function setEditingEnabled(enabled){
+  [E.workLocation,E.entryDateUS,E.timeIn,E.timeOut,E.additionalNotes].forEach(n=>n.disabled=!enabled);
+
+  E.tasksBody.querySelectorAll("input,select,button").forEach(n=>n.disabled=!enabled);
+  E.goalsBody.querySelectorAll("textarea,select,input,button").forEach(n=>n.disabled=!enabled);
+
+  E.addTask.disabled=!enabled;
+  E.addGoal.disabled=!enabled;
+
+  // Save button exists for both modes
+  E.saveNow.disabled=!enabled;
+}
+
+function applyRoleRestrictions() {
+  // Hide manager-only UI in coach mode
+  const coachMode = !isManager();
+
+  // Client admin buttons
+  E.clientAdminRow.classList.toggle("hidden", coachMode);
+
+  // Manager signature card + unlock section + admin bar buttons (except Save)
+  E.managerOnlySpecSig.classList.toggle("hidden", coachMode);
+  E.unlockSection.classList.toggle("hidden", coachMode);
+
+  // In coach mode, hide import/export/wipe (keep Save)
+  E.exportJson.classList.toggle("hidden", coachMode);
+  E.importJson.classList.toggle("hidden", coachMode);
+  E.wipeAll.classList.toggle("hidden", coachMode);
+
+  // In coach mode, prevent template edits:
+  // - Task title readonly
+  // - Goal text readonly
+  // - Hide Add/Remove row controls and prompt controls that change structure
+  const taskTitleInputs = E.tasksBody.querySelectorAll("tr td[data-label='Task'] input");
+  taskTitleInputs.forEach(inp => inp.readOnly = coachMode);
+
+  const goalTextAreas = E.goalsBody.querySelectorAll("tr td[data-label='Goal'] textarea");
+  goalTextAreas.forEach(ta => ta.readOnly = coachMode);
+
+  // Hide add task/goal buttons in coach mode
+  E.addTask.classList.toggle("hidden", coachMode);
+  E.addGoal.classList.toggle("hidden", coachMode);
+
+  // Hide remove buttons in coach mode
+  E.tasksBody.querySelectorAll(".removeTaskBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
+  E.goalsBody.querySelectorAll(".removeGoalBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
+
+  // Prompts structure: coach can edit code/count but not add/remove prompt lines
+  E.goalsBody.querySelectorAll(".addPromptBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
+  E.goalsBody.querySelectorAll(".removePromptBtn").forEach(btn => btn.classList.toggle("hidden", coachMode));
+}
+
+function updateLockUI(){
+  setLockPill();
+
+  // lock all editable form fields when locked/final
+  setEditingEnabled(canEditForm());
+
+  // hard lock client signature pad after client signs
+  const clientLocked = !canEditClientSignature();
+  E.clientCanvas.classList.toggle("sigLocked", clientLocked);
+
+  E.clientClear.disabled = clientLocked;
+  E.clientSign.disabled = clientLocked;
+  E.clientPrinted.disabled = clientLocked;
+
+  // coach pad always allowed unless final, regardless of lock state
+  const otherAllowed = canEditOtherSignatures();
+  E.coachClear.disabled = !otherAllowed;
+  E.coachSign.disabled  = !otherAllowed;
+  E.coachPrinted.disabled = !otherAllowed;
+
+  // manager/spec pad only visible in manager mode
+  if (isManager()) {
+    E.specClear.disabled = !otherAllowed;
+    E.specFinal.disabled = !otherAllowed;
+    E.specPrinted.disabled = !otherAllowed;
+
+    const canUnlock = formState.lockState === "locked";
+    E.unlockBtn.disabled = !canUnlock;
+    E.relockBtn.disabled = (formState.lockState !== "unlocked");
+  }
+
+  applyRoleRestrictions();
+}
+
+/* === SIGNATURE PADS INIT === */
 let sigPads = null;
 function initSigPads() {
   sigPads = {
@@ -882,7 +966,8 @@ function initSigPads() {
       (d)=>formState.sigs.client.dataUrl=d,
       ()=>formState.sigs.client.strokes,
       (n)=>formState.sigs.client.strokes=n,
-      E.clientDebug
+      E.clientDebug,
+      ()=>canEditClientSignature()
     ),
     coach: createSigPad(
       E.coachCanvas,
@@ -890,7 +975,8 @@ function initSigPads() {
       (d)=>formState.sigs.coach.dataUrl=d,
       ()=>formState.sigs.coach.strokes,
       (n)=>formState.sigs.coach.strokes=n,
-      E.coachDebug
+      E.coachDebug,
+      ()=>canEditOtherSignatures()
     ),
     spec: createSigPad(
       E.specCanvas,
@@ -898,12 +984,14 @@ function initSigPads() {
       (d)=>formState.sigs.spec.dataUrl=d,
       ()=>formState.sigs.spec.strokes,
       (n)=>formState.sigs.spec.strokes=n,
-      E.specDebug
+      E.specDebug,
+      ()=>canEditOtherSignatures()
     )
   };
 }
 initSigPads();
 
+/* === SIG BADGES === */
 function syncSigBadges(){
   const hasClient = !!formState.sigs.client.dataUrl;
   const hasCoach  = !!formState.sigs.coach.dataUrl;
@@ -924,15 +1012,35 @@ function syncSigBadges(){
   sigPads?.spec?.updateDebug?.();
 }
 
+/* === CLIENT SELECT === */
+function renderClientSelect(selectedId=null) {
+  const clients = getClients();
+  E.clientSelect.innerHTML = "";
+  if (!clients.length) {
+    const opt = document.createElement("option");
+    opt.value=""; opt.textContent="No clients loaded";
+    E.clientSelect.appendChild(opt);
+    return;
+  }
+  clients.forEach(c => {
+    const opt=document.createElement("option");
+    opt.value=c.id; opt.textContent=c.name;
+    E.clientSelect.appendChild(opt);
+  });
+  E.clientSelect.value = selectedId || clients[0].id;
+}
+
+/* === SNAPSHOT / APPLY === */
 function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-19__supabase_fix_v2",
+    build: BUILD_ID,
+    modeHint: MODE,
     clientId:cid,
-    clientName:c?.display_name||"",
-    planStartISO: c?.plan_start ? String(c.plan_start) : "",
-    planEndISO: c?.plan_end ? String(c.plan_end) : "",
+    clientName:c?.name||"",
+    planStartISO:c?.planStartISO||"",
+    planEndISO:c?.planEndISO||"",
     workLocation:E.workLocation.value,
     entryDateISO:usToISO(E.entryDateUS.value),
     timeIn:E.timeIn.value,
@@ -942,7 +1050,7 @@ function snapshot(){
     goals:getGoals(),
     additionalNotes:E.additionalNotes.value,
     lockState:formState.lockState,
-    unlock:{name:E.unlockName.value, at:E.unlockAt.value},
+    unlock:{name:E.unlockName?.value||"", at:E.unlockAt?.value||""},
     sigs:formState.sigs
   };
 }
@@ -950,11 +1058,10 @@ function snapshot(){
 function apply(data){
   const cid=currentClientId();
   const c=getClientById(cid);
+  E.planStartUS.value=isoToUS(c?.planStartISO||"");
+  E.planEndUS.value=isoToUS(c?.planEndISO||"");
 
-  E.planStartUS.value= c?.plan_start ? isoToUS(String(c.plan_start)) : isoToUS(data.planStartISO||"");
-  E.planEndUS.value  = c?.plan_end   ? isoToUS(String(c.plan_end))   : isoToUS(data.planEndISO||"");
-
-  E.workLocation.value=data.workLocation||c?.work_location||"";
+  E.workLocation.value=data.workLocation||c?.workLocation||"";
   E.entryDateUS.value=isoToUS(data.entryDateISO||"") || todayUS();
   E.timeIn.value=data.timeIn||"";
   E.timeOut.value=data.timeOut||"";
@@ -965,14 +1072,18 @@ function apply(data){
   E.additionalNotes.value=data.additionalNotes||"";
 
   formState.lockState=data.lockState||"unlocked";
-  E.unlockName.value=data.unlock?.name||"";
-  E.unlockAt.value=data.unlock?.at||"";
+
+  if (isManager()) {
+    E.unlockName.value=data.unlock?.name||"";
+    E.unlockAt.value=data.unlock?.at||"";
+  }
 
   formState.sigs = data.sigs || formState.sigs;
 
   E.clientPrinted.value=formState.sigs.client.printed||"";
   E.coachPrinted.value=formState.sigs.coach.printed||"";
-  E.specPrinted.value=formState.sigs.spec.printed||"";
+  if (isManager()) E.specPrinted.value=formState.sigs.spec.printed||"";
+
   E.clientSignedAt.textContent=formState.sigs.client.signedAt||"—";
   E.coachSignedAt.textContent=formState.sigs.coach.signedAt||"—";
   E.specSignedAt.textContent=formState.sigs.spec.signedAt||"—";
@@ -982,6 +1093,7 @@ function apply(data){
   updateLockUI();
 }
 
+/* === AUTOSAVE === */
 let saveTimer=null;
 function autosave(){
   clearTimeout(saveTimer);
@@ -994,22 +1106,17 @@ function autosave(){
   },150);
 }
 
-function loadSavedForClient(clientId){
-  const raw=localStorage.getItem(storageKeyFor(clientId));
-  if(!raw) return false;
-  try { apply(JSON.parse(raw)); return true; } catch { return false; }
-}
-
+/* === LOAD TEMPLATE / SAVED === */
 function loadClientTemplate(client){
-  E.planStartUS.value = client?.plan_start ? isoToUS(String(client.plan_start)) : "";
-  E.planEndUS.value   = client?.plan_end   ? isoToUS(String(client.plan_end))   : "";
-  E.workLocation.value = client?.work_location || "";
-  E.entryDateUS.value = todayUS();
+  E.planStartUS.value=isoToUS(client.planStartISO||"");
+  E.planEndUS.value=isoToUS(client.planEndISO||"");
+  E.workLocation.value=client.workLocation||"";
+  E.entryDateUS.value=todayUS();
   E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
   E.additionalNotes.value="";
 
-  setTasks(DEFAULT_TASKS.map(t=>({title:t,support:"",note:""})));
-  setGoals(DEFAULT_GOALS.map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
+  setTasks((client.tasks || DEFAULT_TASKS).map(t=>({title:t,support:"",note:""})));
+  setGoals((client.goals || DEFAULT_GOALS).map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
 
   formState.lockState="unlocked";
   formState.sigs = {
@@ -1018,12 +1125,25 @@ function loadClientTemplate(client){
     spec:{printed:"",signedAt:"",dataUrl:"",strokes:0}
   };
 
-  E.clientPrinted.value=""; E.coachPrinted.value=""; E.specPrinted.value="";
+  if (isManager()) {
+    E.unlockName.value="";
+    E.unlockAt.value="";
+    E.unlockPin.value="";
+  }
+
+  E.clientPrinted.value=""; E.coachPrinted.value=""; if (isManager()) E.specPrinted.value="";
   E.clientSignedAt.textContent="—"; E.coachSignedAt.textContent="—"; E.specSignedAt.textContent="—";
   sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
+
   syncSigBadges();
   updateLockUI();
   autosave();
+}
+
+function loadSavedForClient(clientId){
+  const raw=localStorage.getItem(storageKeyFor(clientId));
+  if(!raw) return false;
+  try { apply(JSON.parse(raw)); return true; } catch { return false; }
 }
 
 function onClientChange(){
@@ -1036,8 +1156,9 @@ function onClientChange(){
 }
 E.clientSelect.addEventListener("change", ()=>onClientChange());
 
-E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
-E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
+/* === INPUT WIRING === */
+E.addTask.addEventListener("click", ()=>{ if(!canEditForm()) return; addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); updateLockUI(); });
+E.addGoal.addEventListener("click", ()=>{ if(!canEditForm()) return; addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); updateLockUI(); });
 
 ["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
   el(id).addEventListener("input", autosave);
@@ -1046,8 +1167,11 @@ E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",promp
 
 E.clientPrinted.addEventListener("input", ()=>{ formState.sigs.client.printed=E.clientPrinted.value.trim(); autosave(); });
 E.coachPrinted.addEventListener("input",  ()=>{ formState.sigs.coach.printed=E.coachPrinted.value.trim(); autosave(); });
-E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
+if (isManager()) {
+  E.specPrinted.addEventListener("input",   ()=>{ formState.sigs.spec.printed=E.specPrinted.value.trim(); autosave(); });
+}
 
+/* === EXPORT/IMPORT (manager only shown, but still protected) === */
 function download(filename,text){
   const blob=new Blob([text],{type:"application/json"});
   const url=URL.createObjectURL(blob);
@@ -1060,61 +1184,106 @@ E.saveNow.addEventListener("click", ()=>{
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
-
 E.exportJson.addEventListener("click", ()=>{
+  if (!isManager()) return;
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
   download(`TA_${safe}_${data.entryDateISO||"no_date"}.json`, JSON.stringify(data,null,2));
 });
 E.importJson.addEventListener("click", ()=>{
+  if (!isManager()) return;
   const raw=prompt("Paste JSON:");
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
+
+/* === CLIENT ADMIN (manager only) === */
+function addOrUpdateClient(existingId=null){
+  if (!isManager()) return;
+
+  const clients=getClients();
+  const existing=existingId ? clients.find(c=>c.id===existingId) : null;
+
+  const name=prompt("Client name:", existing?.name || "");
+  if(!name) return;
+
+  const ps=prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStartISO) : "12/19/2025");
+  const pe=prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEndISO) : "12/18/2026");
+  const planStartISO=usToISO(ps||"");
+  const planEndISO=usToISO(pe||"");
+  if(!planStartISO || !planEndISO) return alert("Plan dates must be MM/DD/YYYY");
+
+  const workLocation=prompt("Work Location:", existing?.workLocation || "") || "";
+
+  const tasksRaw=prompt("Tasks (one per line):", (existing?.tasks || DEFAULT_TASKS).join("\n")) || "";
+  const tasks=tasksRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  const goalsRaw=prompt("Goals (one per line):", (existing?.goals || DEFAULT_GOALS).join("\n")) || "";
+  const goals=goalsRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  const payload={
+    id: existing?.id || ("client_" + Math.random().toString(16).slice(2)),
+    name,
+    planStartISO, planEndISO,
+    workLocation,
+    tasks: tasks.length ? tasks : DEFAULT_TASKS.slice(),
+    goals: goals.length ? goals : DEFAULT_GOALS.slice()
+  };
+
+  if(existing){
+    const idx=clients.findIndex(c=>c.id===existing.id);
+    clients[idx]=payload;
+    saveClients(clients);
+    renderClientSelect(existing.id);
+    onClientChange();
+    return;
+  }
+
+  clients.push(payload);
+  saveClients(clients);
+  renderClientSelect(payload.id);
+  onClientChange();
+}
+E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
+E.editClientBtn.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; addOrUpdateClient(cid); });
+E.demoBtn.addEventListener("click", ()=>{
+  if (!isManager()) return;
+  saveClients([{
+    id:"client_1",
+    name:"Test Client A",
+    planStartISO:"2025-12-19",
+    planEndISO:"2026-12-18",
+    workLocation:"Albertsons",
+    tasks: DEFAULT_TASKS,
+    goals: DEFAULT_GOALS
+  }]);
+  renderClientSelect("client_1");
+  onClientChange();
+});
+
+/* === WIPE (manager only) === */
 E.wipeAll.addEventListener("click", ()=>{
+  if (!isManager()) return;
   if(!confirm("Wipe ALL local data on this device?")) return;
+  localStorage.removeItem(CLIENTS_KEY);
   Object.keys(localStorage).forEach(k=>{
     if(k.startsWith(STORAGE_KEY_BASE+":")) localStorage.removeItem(k);
   });
   location.reload();
 });
 
-/* ---------- LOCK / UNLOCK ---------- */
-function lockEdits(){
-  formState.lockState = "locked";
-  updateLockUI();
-  autosave();
-}
-function unlockEdits(){
-  formState.lockState = "unlocked";
-  E.unlockAt.value = nowStamp();
-  updateLockUI();
-  autosave();
-}
-E.unlockBtn.addEventListener("click", ()=>{
-  const pin = (E.unlockPin.value || "").trim();
-  if(pin !== PIN_DEFAULT){
-    alert("Incorrect PIN.");
-    return;
-  }
-  unlockEdits();
-  setSaveState("Unlocked for edits","good");
-});
-E.relockBtn.addEventListener("click", ()=>{
-  lockEdits();
-  setSaveState("Re-locked","good");
-});
-
-/* ---------- SIGNING ---------- */
+/* === SIGNING / LOCKING === */
 function finalizeClientSignature(){
   formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
   formState.sigs.client.signedAt = nowStamp();
   E.clientSignedAt.textContent = formState.sigs.client.signedAt;
+
+  // HARD RULE: client sign locks form + client signature
   formState.lockState = "locked";
   updateLockUI();
   syncSigBadges();
   autosave();
-  setSaveState("Client signed. Form locked.","good");
+  setSaveState("Client signed. Locked + timestamped.","good");
 }
 function finalizeCoachSignature(){
   formState.sigs.coach.printed = (E.coachPrinted.value||"").trim();
@@ -1123,19 +1292,24 @@ function finalizeCoachSignature(){
   syncSigBadges(); autosave(); setSaveState("Coach signed.","good");
 }
 function finalizeSpecSignature(){
+  if (!isManager()) return;
   formState.sigs.spec.printed = (E.specPrinted.value||"").trim();
   formState.sigs.spec.signedAt = nowStamp();
   E.specSignedAt.textContent = formState.sigs.spec.signedAt;
+
+  // Manager final makes everything read-only (including coach/spec re-sign)
   formState.lockState = "final";
   updateLockUI();
-  syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
+  syncSigBadges(); autosave(); setSaveState("Manager approved. FINAL.","good");
 }
 
-E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); autosave(); syncSigBadges(); });
-E.coachClear.addEventListener("click",  ()=>{ sigPads.coach.clear();  autosave(); syncSigBadges(); });
-E.specClear.addEventListener("click",   ()=>{ sigPads.spec.clear();   autosave(); syncSigBadges(); });
+E.clientClear.addEventListener("click", ()=>{ if(!canEditClientSignature()) return; sigPads.client.clear(); autosave(); syncSigBadges(); });
+E.coachClear.addEventListener("click",  ()=>{ if(!canEditOtherSignatures()) return; sigPads.coach.clear();  autosave(); syncSigBadges(); });
+E.specClear.addEventListener("click",   ()=>{ if(!canEditOtherSignatures()) return; sigPads.spec.clear();   autosave(); syncSigBadges(); });
 
 E.clientSign.addEventListener("click", ()=>{
+  if(!canEditClientSignature()) return;
+
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
@@ -1148,6 +1322,8 @@ E.clientSign.addEventListener("click", ()=>{
 });
 
 E.coachSign.addEventListener("click", ()=>{
+  if(!canEditOtherSignatures()) return;
+
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
@@ -1160,268 +1336,77 @@ E.coachSign.addEventListener("click", ()=>{
 });
 
 E.specFinal.addEventListener("click", ()=>{
+  if(!isManager()) return;
+  if(!canEditOtherSignatures()) return;
+
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
   sigPads.spec.commit();
-  if((formState.sigs.spec.strokes||0) <= 0) return alert("Specialist signature is blank.");
-  if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
+  if((formState.sigs.spec.strokes||0) <= 0) return alert("Manager signature is blank.");
+  if(!(E.specPrinted.value||"").trim()) return alert("Manager printed name is required.");
   if(!formState.sigs.spec.dataUrl) return alert("Signature failed to capture. Try signing again.");
 
   finalizeSpecSignature();
 });
 
-/* ---------- SUPABASE: clients ---------- */
-function renderClientSelect(selectedId=null) {
-  E.clientSelect.innerHTML = "";
-  if (!clientsCache.length) {
-    const opt = document.createElement("option");
-    opt.value=""; opt.textContent="No clients loaded";
-    E.clientSelect.appendChild(opt);
-    return;
-  }
-  clientsCache.forEach(c => {
-    const opt=document.createElement("option");
-    opt.value=c.id; opt.textContent=c.display_name;
-    E.clientSelect.appendChild(opt);
-  });
-  const target = selectedId || clientsCache[0].id;
-  E.clientSelect.value = target;
-}
-
-async function loadClients(selectedId=null){
-  setSaveState("Loading clients…","warn");
-  const { data, error } = await sb
-    .from("clients")
-    .select("id, display_name, plan_start, plan_end, work_location")
-    .order("display_name", { ascending: true });
-
-  if (error) {
-    setSaveState("Client load failed","bad");
-    alert("Supabase clients load error: " + error.message);
-    return;
-  }
-  clientsCache = data || [];
-  renderClientSelect(selectedId);
-  onClientChange();
-  setSaveState("Clients loaded","good");
-}
-
-async function addClient(){
-  const name = prompt("Client name:");
-  if(!name) return;
-
-  const ps = prompt("Plan Start (MM/DD/YYYY):", "12/19/2025") || "";
-  const pe = prompt("Plan End (MM/DD/YYYY):", "12/18/2026") || "";
-  const plan_start = usToISO(ps);
-  const plan_end   = usToISO(pe);
-  if(!plan_start || !plan_end) return alert("Plan dates must be MM/DD/YYYY");
-
-  const work_location = prompt("Work Location:", "") || "";
-
-  const { data, error } = await sb
-    .from("clients")
-    .insert([{ display_name: name, plan_start, plan_end, work_location }])
-    .select("id, display_name, plan_start, plan_end, work_location")
-    .single();
-
-  if(error) return alert("Supabase add client error: " + error.message);
-
-  clientsCache.push(data);
-  clientsCache.sort((a,b)=> (a.display_name||"").localeCompare(b.display_name||""));
-  renderClientSelect(data.id);
-  onClientChange();
-}
-
-async function editClient(){
-  const cid = currentClientId();
-  const c = getClientById(cid);
-  if(!c) return;
-
-  const name = prompt("Client name:", c.display_name || "");
-  if(!name) return;
-
-  const ps = prompt("Plan Start (MM/DD/YYYY):", c.plan_start ? isoToUS(String(c.plan_start)) : "") || "";
-  const pe = prompt("Plan End (MM/DD/YYYY):", c.plan_end ? isoToUS(String(c.plan_end)) : "") || "";
-  const plan_start = usToISO(ps);
-  const plan_end   = usToISO(pe);
-  if(!plan_start || !plan_end) return alert("Plan dates must be MM/DD/YYYY");
-
-  const work_location = prompt("Work Location:", c.work_location || "") || "";
-
-  const { data, error } = await sb
-    .from("clients")
-    .update({ display_name: name, plan_start, plan_end, work_location })
-    .eq("id", cid)
-    .select("id, display_name, plan_start, plan_end, work_location")
-    .single();
-
-  if(error) return alert("Supabase edit client error: " + error.message);
-
-  clientsCache = clientsCache.map(x => x.id===cid ? data : x);
-  clientsCache.sort((a,b)=> (a.display_name||"").localeCompare(b.display_name||""));
-  renderClientSelect(cid);
-  onClientChange();
-}
-
-E.addClientBtn.addEventListener("click", addClient);
-E.editClientBtn.addEventListener("click", editClient);
-E.reloadClientsBtn.addEventListener("click", ()=>loadClients(currentClientId()));
-
-/* ---------- SUPABASE: submit ---------- */
-function dataUrlToBlob(dataUrl){
-  const parts = (dataUrl||"").split(",");
-  if(parts.length < 2) return null;
-  const mime = (parts[0].match(/data:(.*?);base64/)||[])[1] || "image/png";
-  const bin = atob(parts[1]);
-  const len = bin.length;
-  const arr = new Uint8Array(len);
-  for(let i=0;i<len;i++) arr[i]=bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
-function safeFilePart(s){
-  return String(s||"").trim().replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,50) || "x";
-}
-
-async function uploadSignature(kind, dataUrl){
-  if(!currentUser) throw new Error("Not signed in");
-  const blob = dataUrlToBlob(dataUrl);
-  if(!blob) return "";
-
-  const cid = currentClientId();
-  const c = getClientById(cid);
-  const clientPart = safeFilePart(c?.display_name || "client");
-  const ts = new Date().toISOString().replace(/[:.]/g,"-");
-  const path = `${currentUser.id}/${clientPart}_${kind}_${ts}.png`;
-
-  const { error } = await sb
-    .storage
-    .from("signatures")
-    .upload(path, blob, { contentType: "image/png", upsert: false });
-
-  if(error) throw new Error(`Signature upload (${kind}) failed: ${error.message}`);
-  return path;
-}
-
-async function submitToSupabase(){
-  if(!currentUser) return alert("Please log in first.");
-
-  const v = validateRequiredForSigning();
-  if(!v.ok) return;
-
-  setSaveState("Submitting…","warn");
-
-  sigPads.client.commit();
-  sigPads.coach.commit();
-  sigPads.spec.commit();
-
-  const snap = snapshot();
-
-  let clientSigPath = "";
-  let coachSigPath = "";
-  let specSigPath = "";
-
-  try {
-    if (snap.sigs?.client?.dataUrl) clientSigPath = await uploadSignature("client", snap.sigs.client.dataUrl);
-    if (snap.sigs?.coach?.dataUrl)  coachSigPath  = await uploadSignature("coach",  snap.sigs.coach.dataUrl);
-    if (snap.sigs?.spec?.dataUrl)   specSigPath   = await uploadSignature("spec",   snap.sigs.spec.dataUrl);
-
-    const snapForDb = structuredClone(snap);
-    if (snapForDb.sigs?.client) snapForDb.sigs.client.dataUrl = "";
-    if (snapForDb.sigs?.coach)  snapForDb.sigs.coach.dataUrl  = "";
-    if (snapForDb.sigs?.spec)   snapForDb.sigs.spec.dataUrl   = "";
-
-    const payload = {
-      client_id: snap.clientId,
-      coach_user_id: currentUser.id,
-      data: snapForDb,
-      client_signature_path: clientSigPath || null,
-      coach_signature_path: coachSigPath || null,
-      spec_signature_path: specSigPath || null
-    };
-
-    const { error } = await sb.from("ta_records").insert([payload]);
-    if(error) throw new Error(error.message);
-
-    setSaveState("Submitted to Supabase","good");
-    alert("Submitted to Supabase successfully.");
-  } catch (err) {
-    console.error(err);
-    setSaveState("Submit failed","bad");
-    alert("Submit failed: " + (err?.message || err));
-  }
-}
-
-E.submitSupabase.addEventListener("click", submitToSupabase);
-
-/* ---------- AUTH ---------- */
-function showAuthError(msg){
-  E.authErrorText.textContent = msg;
-  E.authErrorBox.style.display = "block";
-}
-function clearAuthError(){
-  E.authErrorText.textContent = "";
-  E.authErrorBox.style.display = "none";
-}
-
-async function refreshSession(){
-  const { data } = await sb.auth.getSession();
-  currentUser = data?.session?.user || null;
-
-  if(currentUser){
-    E.authStatus.textContent = "Signed in";
-    E.authStatus.className = "pill good";
-    E.loginBtn.style.display = "none";
-    E.logoutBtn.style.display = "inline-block";
-    E.authCard.style.display = "none";
-    E.appCard.style.display = "block";
-    E.userPill.textContent = `User: ${currentUser.email || currentUser.id}`;
-    await loadClients();
-  } else {
-    E.authStatus.textContent = "Not signed in";
-    E.authStatus.className = "pill bad";
-    E.loginBtn.style.display = "inline-block";
-    E.logoutBtn.style.display = "none";
-    E.authCard.style.display = "block";
-    E.appCard.style.display = "none";
-    E.userPill.textContent = "User: —";
-  }
-}
-
-E.loginBtn.addEventListener("click", async ()=>{
-  clearAuthError();
-  const email = (E.authEmail.value || "").trim();
-  const password = (E.authPass.value || "").trim();
-  if(!email || !password) return showAuthError("Email and password required.");
-
-  E.authStatus.textContent = "Signing in…";
-  E.authStatus.className = "pill warn";
-
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){
-    E.authStatus.textContent = "Not signed in";
-    E.authStatus.className = "pill bad";
-    return showAuthError(error.message);
-  }
-  await refreshSession();
-});
-
-E.logoutBtn.addEventListener("click", async ()=>{
-  await sb.auth.signOut();
-  await refreshSession();
-});
-
-sb.auth.onAuthStateChange(async () => {
-  await refreshSession();
-});
-
-/* ---------- init ---------- */
-(function init(){
-  E.entryDateUS.value = todayUS();
+/* === UNLOCK: MANAGER ONLY === */
+function unlockEdits(){
+  formState.lockState = "unlocked";
+  E.unlockAt.value = nowStamp();
   updateLockUI();
+  autosave();
+}
+function relockEdits(){
+  formState.lockState = "locked";
+  updateLockUI();
+  autosave();
+}
+
+E.unlockBtn.addEventListener("click", ()=>{
+  if(!isManager()) return;
+  if(formState.lockState !== "locked") return;
+
+  const pin = (E.unlockPin.value || "").trim();
+  if(pin !== PIN_DEFAULT){
+    alert("Incorrect PIN.");
+    return;
+  }
+  if(!(E.unlockName.value||"").trim()){
+    alert("Manager name is required to unlock.");
+    return;
+  }
+
+  unlockEdits();
+  setSaveState("Unlocked for corrections (Manager).","good");
+});
+
+E.relockBtn.addEventListener("click", ()=>{
+  if(!isManager()) return;
+  if(formState.lockState !== "unlocked") return;
+  relockEdits();
+  setSaveState("Re-locked.","good");
+});
+
+/* === INIT === */
+(function init(){
+  // Coach-mode safety: if no clients exist, they can’t add them
+  // so show a blunt message.
+  renderClientSelect();
+  const clients=getClients();
+
+  if(clients.length){
+    renderClientSelect(clients[0].id);
+    onClientChange();
+    setSaveState("Ready","good");
+  } else {
+    E.entryDateUS.value=todayUS();
+    setSaveState(isManager() ? "No clients loaded (add one)" : "No clients loaded (manager must add clients)", "bad");
+    updateLockUI();
+  }
+
   syncSigBadges();
-  refreshSession();
+  updateLockUI();
 })();
 </script>
 </body>
