@@ -1478,7 +1478,7 @@ async function submitToSupabase(){
   }
 
   const record = {
-    client_id: supaClientId,
+    client_id: String(supaClientId),
     coach_user_id: currentUser.id,
     data: snap,
     client_signature_path: clientSigPath,
