@@ -1486,7 +1486,7 @@ async function submitToSupabase(){
     spec_signature_path: specSigPath
   };
 
-  const { error } = await sb.from("ta_records").insert([record]);
+  const { error } = await sb.from("ta_records_v2").insert([record]);
   if (error) throw error;
 
   setSaveState("Submitted to Supabase", "good");
