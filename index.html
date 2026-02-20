@@ -920,7 +920,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  function startAt(p) { sizeCanvasToCSS(canvas); drawing = true; last = p; }
+  function startAt(p) { drawing = true; last = p; }
   function moveTo(p) {
     if (!drawing) return;
     ctx.lineWidth = 2;
