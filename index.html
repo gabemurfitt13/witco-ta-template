@@ -196,6 +196,7 @@
         <div class="manageRow" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
           <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
+          <button class="secondary tiny" id="loadSupabaseClientsBtn" type="button">Load Supabase Clients</button>
           <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
         </div>
       </div>
@@ -421,6 +422,7 @@ const E = {
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
   demoBtn: el("demoBtn"),
+  loadSupabaseClientsBtn: el("loadSupabaseClientsBtn"),
 
   errorBox: el("errorBox"),
   errorList: el("errorList"),
@@ -1172,6 +1174,31 @@ E.demoBtn.addEventListener("click", ()=>{
   }]);
   renderClientSelect("client_1");
   onClientChange();
+});
+
+E.loadSupabaseClientsBtn.addEventListener("click", async ()=>{
+  try {
+    const { data, error } = await sb.from("clients").select("*");
+    if (error) throw error;
+
+    const normalized = (data || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      planStartISO: c.plan_start_iso || "",
+      planEndISO: c.plan_end_iso || "",
+      workLocation: c.work_location || "",
+      tasks: c.tasks ? (typeof c.tasks === 'string' ? JSON.parse(c.tasks) : c.tasks) : DEFAULT_TASKS,
+      goals: c.goals ? (typeof c.goals === 'string' ? JSON.parse(c.goals) : c.goals) : DEFAULT_GOALS
+    }));
+
+    saveClients(normalized);
+    renderClientSelect(normalized[0]?.id || "");
+    if (normalized.length) onClientChange();
+    alert(`Loaded ${normalized.length} client(s) from Supabase`);
+    setSaveState("Clients loaded from Supabase", "good");
+  } catch (e) {
+    alert("Failed to load clients: " + (e?.message || e));
+  }
 });
 
 E.wipeAll.addEventListener("click", ()=>{
