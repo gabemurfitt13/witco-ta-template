@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Medicaid Supported Employment Data Sheet</title>
 
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     body { margin: 0; background: #f6f7fb; color: #111; }
@@ -16,7 +19,7 @@
     .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #f1f3ff; color: #223; font-size: 12px; border: 1px solid #e0e5ff; }
     .pill.bad { background:#fff1f1; border-color:#ffd3d3; color:#7a1111; }
     .pill.good { background:#eefbf3; border-color:#c7f0d8; color:#104a2a; }
-    .pill.warn { background:#fff7e6; border-color:#ffe0a6; color:#7a4b00; }
+    .pill.warn { background:#fff7e6; border-color:#ffe1a3; color:#7a4a00; }
 
     .build {
       display:inline-block;
@@ -53,7 +56,7 @@
     th, td { border-top: 1px solid #eef0f6; padding: 6px 6px; vertical-align: top; }
     th { text-align: left; font-size: 11px; color: #555; background: #fafbff; }
 
-    .btnbar { display: flex; gap: 8px; flex-wrap: wrap; align-items:center; }
+    .btnbar { display: flex; gap: 8px; flex-wrap: wrap; }
     button {
       border: 1px solid #d7dbea; background: #111; color: #fff;
       padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 13px;
@@ -62,7 +65,7 @@
     button.danger { background: #b42318; border-color: #b42318; }
     button.ok { background:#157f3b; border-color:#157f3b; }
     button.warn { background:#b36b00; border-color:#b36b00; }
-    button:disabled { opacity:.55; cursor:not-allowed; }
+    .tiny { font-size: 12px; padding: 6px 8px; border-radius: 9px; }
 
     .supportLines { display:flex; flex-direction:column; gap:6px; }
     .supportLine { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -106,29 +109,27 @@
 
     /* Auth overlay */
     .overlay {
-      position:fixed; inset:0;
-      background: rgba(0,0,0,.55);
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
       display:none;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-      z-index:9999;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 9999;
     }
     .modal {
-      width:min(520px, 100%);
-      background:#fff;
-      border-radius:14px;
-      padding:14px;
-      border:1px solid #e6e8f0;
-      box-shadow: 0 10px 40px rgba(0,0,0,.25);
+      width: min(520px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e6e8f0;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      padding: 14px;
     }
-    .modal h3 { margin:0 0 6px; font-size:16px; }
-    .modal p { margin:0 0 10px; font-size:12px; color:#444; line-height:1.35; }
-    .modal .grid { margin-top:10px; }
-    .modal .msg { margin-top:10px; font-size:12px; padding:8px 10px; border-radius:10px; display:none; }
-    .msg.bad { background:#fff1f1; border:1px solid #ffd3d3; color:#7a1111; }
-    .msg.good { background:#eefbf3; border:1px solid #c7f0d8; color:#104a2a; }
-    .msg.warn { background:#fff7e6; border:1px solid #ffe0a6; color:#7a4b00; }
+    .modal h3 { margin: 0 0 6px; font-size: 16px; }
+    .modal p { margin: 0 0 10px; font-size: 12px; color: #555; }
+    .modal .row { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    .modal .actions { display:flex; gap: 8px; flex-wrap:wrap; margin-top: 10px; }
+    .modal .msg { margin-top: 8px; font-size: 12px; color:#7a1111; }
 
     @media (max-width: 720px) {
       .col-6,.col-4,.col-3,.col-2 { grid-column: span 12; }
@@ -145,30 +146,27 @@
 </head>
 
 <body>
+
+<!-- Auth Overlay -->
 <div class="overlay" id="authOverlay">
   <div class="modal">
-    <div class="btnbar" style="justify-content:space-between;">
-      <h3 style="margin:0;">Sign in</h3>
+    <h3>Sign in</h3>
+    <p>Supabase Auth is required to load clients and submit TAs. Use your Supabase user email/password.</p>
+    <div class="row">
+      <div>
+        <label>Email</label>
+        <input id="authEmail" autocomplete="username" placeholder="you@domain.com" />
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="ok" id="authLoginBtn" type="button">Login</button>
       <button class="secondary" id="authCloseBtn" type="button">Close</button>
     </div>
-    <p>Use your Supabase account (email + password). Coaches can sign in too. Specialist permissions are email-allowlisted.</p>
-    <div class="grid">
-      <div class="col-12">
-        <label>Email</label>
-        <input id="authEmail" autocomplete="username" />
-      </div>
-      <div class="col-12">
-        <label>Password</label>
-        <input id="authPass" type="password" autocomplete="current-password" />
-      </div>
-      <div class="col-12">
-        <div class="btnbar">
-          <button class="ok" id="authLoginBtn" type="button">Sign in</button>
-          <button class="secondary" id="authLogoutBtn" type="button">Sign out</button>
-        </div>
-      </div>
-    </div>
-    <div class="msg" id="authMsg"></div>
+    <div class="msg" id="authMsg" style="display:none;"></div>
   </div>
 </div>
 
@@ -176,10 +174,12 @@
   <div class="card">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
     <div class="sub">
-      <span class="build">BUILD_ID: 2026-02-20__supabase_v2_full</span>
+      <span class="build">BUILD_ID: 2026-02-19__supabase_full_v1</span>
       <span class="pill" id="saveState">Ready</span>
       <span class="pill" id="lockPill">Unlocked</span>
-      <span class="pill" id="authPill">Signed out</span>
+      <span class="pill bad" id="authPill">Not signed in</span>
+      <button class="secondary tiny" id="openLogin" type="button">Login</button>
+      <button class="secondary tiny" id="logoutBtn" type="button">Logout</button>
     </div>
 
     <div id="errorBox" class="errbox">
@@ -195,6 +195,7 @@
           <button class="secondary tiny" id="addClientBtn" type="button">Add Client</button>
           <button class="secondary tiny" id="editClientBtn" type="button">Edit Client</button>
           <button class="secondary tiny" id="demoBtn" type="button">Load Demo Clients</button>
+          <button class="secondary tiny" id="reloadClientsSupabase" type="button">Reload Clients (Supabase)</button>
         </div>
       </div>
 
@@ -209,7 +210,7 @@
 
       <div class="col-4">
         <label>Work Location</label>
-        <input id="workLocation" placeholder="e.g., Job site" />
+        <input id="workLocation" placeholder="e.g., Albertsons" />
       </div>
       <div class="col-4">
         <label>Date (MM/DD/YYYY)</label>
@@ -273,7 +274,7 @@
 
     <div class="rowhead">
       <h2>Signatures</h2>
-      <div class="hint">Order enforced: Client → Coach → Specialist (specialist only during review).</div>
+      <div class="hint">Client signature locks. Required fields are enforced before any signing.</div>
     </div>
 
     <div class="sigGrid">
@@ -286,7 +287,7 @@
         <div class="sigMeta">Signed at: <span id="clientSignedAt">—</span></div>
         <div class="btnbar" style="margin-top:8px;">
           <button class="secondary tiny" id="clientClear" type="button">Clear</button>
-          <button class="tiny ok" id="clientSign" type="button">Client Sign</button>
+          <button class="tiny ok" id="clientSign" type="button">Client Sign (locks)</button>
         </div>
       </div>
 
@@ -318,18 +319,29 @@
     </div>
 
     <div class="rowhead">
-      <h2>Review Controls</h2>
-      <div class="hint">Specialist only: load a submitted TA by record ID, then sign or kick back.</div>
-    </div>
-    <div class="btnbar">
-      <button class="secondary" id="authOpenBtn" type="button">Sign in / out</button>
-      <button class="secondary" id="reviewLoad" type="button">Specialist: Load TA by ID</button>
-      <button class="secondary warn" id="reviewKickBack" type="button">Specialist: Kick Back</button>
+      <h2>Unlock for Edits (PIN)</h2>
+      <div class="hint">PIN only unlocks editing after client sign. Does not block coach signing.</div>
     </div>
 
-    <div class="rowhead">
-      <h2>Local Actions</h2>
-      <div class="hint">Drafts are device-only. Selecting a client always starts a new TA from the template.</div>
+    <div class="grid" style="align-items:end;">
+      <div class="col-4">
+        <label>Specialist Name</label>
+        <input id="unlockName" placeholder="Name" />
+      </div>
+      <div class="col-4">
+        <label>PIN</label>
+        <input id="unlockPin" type="password" placeholder="0413" />
+      </div>
+      <div class="col-4">
+        <label>Unlocked at</label>
+        <input id="unlockAt" readonly />
+      </div>
+      <div class="col-12">
+        <div class="btnbar">
+          <button class="secondary" id="unlockBtn" type="button">Unlock for Corrections</button>
+          <button class="secondary" id="relockBtn" type="button">Re-Lock After Edits</button>
+        </div>
+      </div>
     </div>
 
     <div class="btnbar" style="margin-top:10px;">
@@ -339,28 +351,52 @@
       <button class="secondary" id="importJson" type="button">Import JSON</button>
       <button class="ok" id="submitSupabase" type="button">Submit to Supabase (v2)</button>
       <button class="danger" id="wipeAll" type="button">Wipe Local Data</button>
+      <button class="secondary" id="reviewLoad" type="button">Specialist: Load TA by ID</button>
+      <button class="secondary warn" id="reviewKickBack" type="button">Specialist: Kick Back</button>
     </div>
   </div>
 </div>
 
-<!-- Supabase JS -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
-/* BUILD_ID: 2026-02-20__supabase_v2_full */
+/* BUILD_ID: 2026-02-19__supabase_full_v1 */
 
+/* -------------------- SUPABASE CONFIG -------------------- */
 const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhob25leGR3YXJybHR4c2l1ZXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MTg1MjgsImV4cCI6MjA4NzA5NDUyOH0.dv9sTl0G3MO9t69ljCqBeGa8UeYMVBc4CjhxUDNeoDk";
+const SIG_BUCKET = "signatures";
+
+/* Use sessionStorage to reduce auth-token lock headaches during testing */
+window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, storage: window.sessionStorage }
+});
+var sb = window.__sb;
+
+let currentUser = null;
+
+/* -------------------- ORIGINAL CONSTANTS -------------------- */
+const CLIENTS_KEY = "witco_clients_required_v1";
+const STORAGE_KEY_BASE = "witco_supported_employment_required_v1";
+const PIN_DEFAULT = "0413";
 // Specialist allowlist (only these emails can specialist-sign / review)
-const SPECIALIST_EMAILS = ["SPECIALIST_EMAIL_HERE"];
+const SPECIALIST_EMAILS = ["gmurfitt@witcoinc.net"];
 
-const CLIENTS_KEY = "witco_clients_supabase_v2";
-const STORAGE_KEY_BASE = "witco_ta_supabase_v2";
+let currentUserEmail = "";
+let isSpecialist = false;
 
-const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
-const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
+// Review mode variables (specialist only)
+let appMode = "coach";        // "coach" or "review"
+let currentRecordId = null;   // ta_records_v2.id
+let currentRecordStatus = ""; // submitted | approved | needs_correction
+const DEFAULT_TASKS = [
+  "Task 1",
+  "Task 2",
+  "Task 3"
+];
+const DEFAULT_GOALS = [
+  "Goal 1",
+  "Goal 2"
+];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
-
 const el = (id) => document.getElementById(id);
 
 const E = {
@@ -375,10 +411,8 @@ const E = {
   tasksBody: el("tasksBody"),
   goalsBody: el("goalsBody"),
   additionalNotes: el("additionalNotes"),
-
   saveState: el("saveState"),
   lockPill: el("lockPill"),
-  authPill: el("authPill"),
 
   addTask: el("addTask"),
   addGoal: el("addGoal"),
@@ -411,12 +445,20 @@ const E = {
   coachDebug: el("coachDebug"),
   specDebug: el("specDebug"),
 
+  unlockName: el("unlockName"),
+  unlockPin: el("unlockPin"),
+  unlockAt: el("unlockAt"),
+  unlockBtn: el("unlockBtn"),
+  relockBtn: el("relockBtn"),
+
   saveNow: el("saveNow"),
   resumeDraft: el("resumeDraft"),
   exportJson: el("exportJson"),
   importJson: el("importJson"),
-  submitSupabase: el("submitSupabase"),
   wipeAll: el("wipeAll"),
+  submitSupabase: el("submitSupabase"),
+  reviewLoad: el("reviewLoad"),
+  reviewKickBack: el("reviewKickBack"),
 
   addClientBtn: el("addClientBtn"),
   editClientBtn: el("editClientBtn"),
@@ -425,61 +467,111 @@ const E = {
   errorBox: el("errorBox"),
   errorList: el("errorList"),
 
-  // auth/review
+  submitSupabase: el("submitSupabase"),
+  reloadClientsSupabase: el("reloadClientsSupabase"),
+
+  authPill: el("authPill"),
+  openLogin: el("openLogin"),
+  logoutBtn: el("logoutBtn"),
+
   authOverlay: el("authOverlay"),
   authEmail: el("authEmail"),
   authPass: el("authPass"),
-  authMsg: el("authMsg"),
-  authOpenBtn: el("authOpenBtn"),
-  authCloseBtn: el("authCloseBtn"),
   authLoginBtn: el("authLoginBtn"),
-  authLogoutBtn: el("authLogoutBtn"),
-
-  reviewLoad: el("reviewLoad"),
-  reviewKickBack: el("reviewKickBack"),
+  authCloseBtn: el("authCloseBtn"),
+  authMsg: el("authMsg")
 };
-
-const sb = (SUPABASE_URL.includes("SUPABASE_") ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
-
-let currentUserEmail = "";
-let currentUserId = null;
-let isSpecialist = false;
-
-// appMode: coach (normal creation) or review (specialist reviewing submitted TA)
-let appMode = "coach";
-let currentRecordId = null;
 
 const formState = {
   lockState: "unlocked", // unlocked | locked | final
   sigs: {
-    client: { printed:"", signedAt:"", dataUrl:"", strokes:0, storagePath:"" },
-    coach:  { printed:"", signedAt:"", dataUrl:"", strokes:0, storagePath:"" },
-    spec:   { printed:"", signedAt:"", dataUrl:"", strokes:0, storagePath:"" }
+    client: { printed:"", signedAt:"", dataUrl:"", strokes:0 },
+    coach:  { printed:"", signedAt:"", dataUrl:"", strokes:0 },
+    spec:   { printed:"", signedAt:"", dataUrl:"", strokes:0 }
   }
 };
 
 function setSaveState(text, kind="") {
   E.saveState.textContent = text;
   E.saveState.classList.remove("bad","good","warn");
-  if (kind) E.saveState.classList.add(kind);
+  if (kind==="bad") E.saveState.classList.add("bad");
+  if (kind==="good") E.saveState.classList.add("good");
+  if (kind==="warn") E.saveState.classList.add("warn");
 }
 function setLockPill() {
-  E.lockPill.classList.remove("bad","good","warn");
+  E.lockPill.classList.remove("bad","good");
   if (formState.lockState === "unlocked") { E.lockPill.textContent="Unlocked"; E.lockPill.classList.add("good"); }
   if (formState.lockState === "locked")   { E.lockPill.textContent="Locked"; E.lockPill.classList.add("bad"); }
   if (formState.lockState === "final")    { E.lockPill.textContent="FINAL"; E.lockPill.classList.add("bad"); }
 }
 
-function setAuthPill() {
-  if (!currentUserId) {
-    E.authPill.textContent = "Signed out";
-    E.authPill.className = "pill bad";
-    return;
-  }
-  E.authPill.textContent = isSpecialist ? `Signed in (Specialist): ${currentUserEmail}` : `Signed in: ${currentUserEmail}`;
-  E.authPill.className = "pill good";
+/* -------------------- AUTH UI -------------------- */
+function showAuthOverlay(show=true){
+  E.authOverlay.style.display = show ? "flex" : "none";
+  E.authMsg.style.display = "none";
+  if (show) setTimeout(()=>E.authEmail.focus(), 50);
+}
+function setAuthPill(text, kind){
+  E.authPill.textContent = text;
+  E.authPill.classList.remove("bad","good","warn");
+  E.authPill.classList.add(kind || "bad");
+}
+function showAuthMsg(msg){
+  E.authMsg.textContent = msg;
+  E.authMsg.style.display = "block";
 }
 
+async function refreshSessionAndUI(){
+  const { data, error } = await sb.auth.getSession();
+  if (error) {
+    setAuthPill("Auth error", "bad");
+    currentUser = null;
+    return;
+  }
+  const session = data?.session || null;
+  if (!session) {
+    currentUser = null;
+    setAuthPill("Not signed in", "bad");
+    return;
+  }
+  currentUser = session.user;
+  const email = currentUser?.email || "Signed in";
+  setAuthPill(email, "good");
+}
+
+E.openLogin.addEventListener("click", ()=>showAuthOverlay(true));
+E.authCloseBtn.addEventListener("click", ()=>showAuthOverlay(false));
+E.authLoginBtn.addEventListener("click", async ()=>{
+  const email = (E.authEmail.value||"").trim();
+  const password = (E.authPass.value||"").trim();
+  if (!email || !password) return showAuthMsg("Email and password required.");
+
+  try{
+    setAuthPill("Signing in…", "warn");
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      setAuthPill("Not signed in", "bad");
+      return showAuthMsg(error.message);
+    }
+    await refreshSessionAndUI();
+    showAuthOverlay(false);
+    setSaveState("Signed in", "good");
+  } catch (e){
+    setAuthPill("Not signed in", "bad");
+    showAuthMsg(e?.message || String(e));
+  }
+});
+
+E.logoutBtn.addEventListener("click", async ()=>{
+  try{
+    await sb.auth.signOut();
+  } catch {}
+  currentUser = null;
+  setAuthPill("Not signed in", "bad");
+  setSaveState("Signed out", "warn");
+});
+
+/* -------------------- VALIDATION UI -------------------- */
 function clearValidationUI() {
   document.querySelectorAll(".invalid").forEach(n => n.classList.remove("invalid"));
   E.errorList.innerHTML = "";
@@ -518,6 +610,29 @@ E.entryDateUS.addEventListener("input", () => {
   else if (v.length >= 3) E.entryDateUS.value = v.slice(0,2)+"/"+v.slice(2);
   else E.entryDateUS.value = v;
 });
+
+function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
+function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
+function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
+function getClientById(id) { return getClients().find(c => c.id === id); }
+function currentClientId() { return E.clientSelect.value || ""; }
+
+function renderClientSelect(selectedId=null) {
+  const clients = getClients();
+  E.clientSelect.innerHTML = "";
+  if (!clients.length) {
+    const opt = document.createElement("option");
+    opt.value=""; opt.textContent="No clients loaded";
+    E.clientSelect.appendChild(opt);
+    return;
+  }
+  clients.forEach(c => {
+    const opt=document.createElement("option");
+    opt.value=c.id; opt.textContent=c.name;
+    E.clientSelect.appendChild(opt);
+  });
+  E.clientSelect.value = selectedId || clients[0].id;
+}
 
 function minutesBetween(t1,t2){
   if(!t1||!t2) return null;
@@ -766,7 +881,6 @@ function sizeCanvasToCSS(canvas) {
 function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl) {
   const ctx = canvas.getContext("2d");
   let drawing = false;
-  let suppressResize = false;
   let last = null;
 
   function updateDebug() {
@@ -820,11 +934,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     return { x: clientX - r.left, y: clientY - r.top };
   }
 
-  function startAt(p) {
-    drawing = true;
-    suppressResize = true;
-    last = p;
-  }
+  function startAt(p) { drawing = true; last = p; }
   function moveTo(p) {
     if (!drawing) return;
     ctx.lineWidth = 2;
@@ -844,7 +954,6 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
     last = null;
     commit();
     autosave();
-    setTimeout(() => { suppressResize = false; }, 50);
   }
 
   if (window.PointerEvent) {
@@ -875,12 +984,7 @@ function createSigPad(canvas, getData, setData, getStrokes, setStrokes, debugEl)
   }
 
   setTimeout(() => { sizeCanvasToCSS(canvas); redraw(); }, 0);
-  window.addEventListener("resize", () => {
-    // mobile browsers resize during touch/toolbar changes; resizing clears canvas
-    if (suppressResize || drawing) return;
-    sizeCanvasToCSS(canvas);
-    redraw();
-  });
+  window.addEventListener("resize", () => { sizeCanvasToCSS(canvas); redraw(); });
 
   return { clear, redraw, commit, updateDebug };
 }
@@ -894,12 +998,9 @@ function setEditingEnabled(enabled){
   E.addTask.disabled=!enabled;
   E.addGoal.disabled=!enabled;
   E.saveNow.disabled=!enabled;
-  E.exportJson.disabled=!enabled;
-  E.importJson.disabled=!enabled;
 }
 function updateLockUI(){
   setLockPill();
-  // locked/final = no editing
   setEditingEnabled(formState.lockState==="unlocked");
 }
 
@@ -921,24 +1022,23 @@ function syncSigBadges(){
   sigPads?.client?.updateDebug?.();
   sigPads?.coach?.updateDebug?.();
   sigPads?.spec?.updateDebug?.();
-
-  // Enforce signing order and specialist restrictions
+    // Enforce signing order and specialist restrictions
+  
+  // Coach can only sign after client signed
   E.coachSign.disabled = !hasClient;
 
+  // Specialist can only sign in review mode AND only if client+coach signed
   const specAllowed = hasClient && hasCoach && isSpecialist && appMode === "review";
   E.specFinal.disabled = !specAllowed;
   E.specCanvas.style.pointerEvents = specAllowed ? "auto" : "none";
   E.specPrinted.disabled = !specAllowed;
-
-  // Only allow submit after client+coach signed
-  E.submitSupabase.disabled = !(hasClient && hasCoach);
 }
 
 function snapshot(){
   const cid=currentClientId();
   const c=getClientById(cid);
   return {
-    build:"2026-02-20__supabase_v2_full",
+    build:"2026-02-19__supabase_full_v1",
     clientId:cid,
     clientName:c?.name||"",
     planStartISO:c?.planStartISO||"",
@@ -952,6 +1052,7 @@ function snapshot(){
     goals:getGoals(),
     additionalNotes:E.additionalNotes.value,
     lockState:formState.lockState,
+    unlock:{name:E.unlockName.value, at:E.unlockAt.value},
     sigs:formState.sigs
   };
 }
@@ -973,6 +1074,9 @@ function apply(data){
   E.additionalNotes.value=data.additionalNotes||"";
 
   formState.lockState=data.lockState||"unlocked";
+  E.unlockName.value=data.unlock?.name||"";
+  E.unlockAt.value=data.unlock?.at||"";
+
   formState.sigs = data.sigs || formState.sigs;
 
   E.clientPrinted.value=formState.sigs.client.printed||"";
@@ -988,7 +1092,6 @@ function apply(data){
 }
 
 let saveTimer=null;
-function storageKeyFor(clientId) { return `${STORAGE_KEY_BASE}:${clientId}`; }
 function autosave(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
@@ -1000,6 +1103,7 @@ function autosave(){
   },150);
 }
 
+/* ---------- sig pads init ---------- */
 let sigPads = null;
 function initSigPads() {
   sigPads = {
@@ -1031,31 +1135,8 @@ function initSigPads() {
 }
 initSigPads();
 
-/* ---------- client template storage ---------- */
-function getClients() { try { return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]"); } catch { return []; } }
-function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients)); }
-function getClientById(id) { return getClients().find(c => c.id === id); }
-function currentClientId() { return E.clientSelect.value || ""; }
-
-function renderClientSelect(selectedId=null) {
-  const clients = getClients();
-  E.clientSelect.innerHTML = "";
-  if (!clients.length) {
-    const opt = document.createElement("option");
-    opt.value=""; opt.textContent="No clients loaded";
-    E.clientSelect.appendChild(opt);
-    return;
-  }
-  clients.forEach(c => {
-    const opt=document.createElement("option");
-    opt.value=c.id; opt.textContent=c.name;
-    E.clientSelect.appendChild(opt);
-  });
-  E.clientSelect.value = selectedId || clients[0].id;
-}
-
-function loadClientTemplate(client){
-  // This creates a NEW TA instance from template only
+/* ---------- wiring ---------- */
+function loadClientTemplate(client, preserveExistingDraft=false){
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
   E.workLocation.value=client.workLocation||"";
@@ -1068,30 +1149,37 @@ function loadClientTemplate(client){
 
   formState.lockState="unlocked";
   formState.sigs = {
-    client:{printed:"",signedAt:"",dataUrl:"",strokes:0,storagePath:""},
-    coach:{printed:"",signedAt:"",dataUrl:"",strokes:0,storagePath:""},
-    spec:{printed:"",signedAt:"",dataUrl:"",strokes:0,storagePath:""}
+    client:{printed:"",signedAt:"",dataUrl:"",strokes:0},
+    coach:{printed:"",signedAt:"",dataUrl:"",strokes:0},
+    spec:{printed:"",signedAt:"",dataUrl:"",strokes:0}
   };
 
   E.clientPrinted.value=""; E.coachPrinted.value=""; E.specPrinted.value="";
   E.clientSignedAt.textContent="—"; E.coachSignedAt.textContent="—"; E.specSignedAt.textContent="—";
   sigPads.client.clear(); sigPads.coach.clear(); sigPads.spec.clear();
-  appMode = "coach";
-  currentRecordId = null;
-
   syncSigBadges();
   updateLockUI();
-  autosave();
+    // Don't overwrite an existing draft just because we loaded the template.
+  // We'll autosave once the user starts typing or hits Save.
+  if (!preserveExistingDraft) autosave();
+}
+
+function loadSavedForClient(clientId){
+  const raw=localStorage.getItem(storageKeyFor(clientId));
+  if(!raw) return false;
+  try { apply(JSON.parse(raw)); return true; } catch { return false; }
 }
 
 function onClientChange(){
   const cid=currentClientId();
   const client=getClientById(cid);
   if(!client) return;
-  loadClientTemplate(client);
+
+  // ALWAYS start a new TA from the client template.
+  // Drafts can be resumed only by clicking "Resume Draft".
+  loadClientTemplate(client, true);
   setSaveState("Started new TA (template loaded)", "good");
 }
-
 E.clientSelect.addEventListener("change", ()=>onClientChange());
 
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
@@ -1113,22 +1201,25 @@ function download(filename,text){
   a.href=url; a.download=filename; a.click();
   URL.revokeObjectURL(url);
 }
-
 E.saveNow.addEventListener("click", ()=>{
   const cid=currentClientId(); if(!cid) return;
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
-
 E.resumeDraft.addEventListener("click", ()=>{
   const cid=currentClientId();
   if(!cid) return;
+
   const raw = localStorage.getItem(storageKeyFor(cid));
   if(!raw) return alert("No draft found for this client on this device.");
-  try { apply(JSON.parse(raw)); setSaveState("Draft resumed","good"); }
-  catch { alert("Draft data is corrupted."); }
-});
 
+  try {
+    apply(JSON.parse(raw));
+    setSaveState("Draft resumed", "good");
+  } catch {
+    alert("Draft data is corrupted and couldn't be loaded.");
+  }
+});
 E.exportJson.addEventListener("click", ()=>{
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
@@ -1139,7 +1230,124 @@ E.importJson.addEventListener("click", ()=>{
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
+  E.submitSupabase.addEventListener("click", async ()=>{
+  try {
+    // Require both signatures before submit
+    const v = validateRequiredForSigning();
+    if (!v.ok) return;
 
+    if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
+    if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
+
+    // Hard-lock locally immediately
+    formState.lockState = "final";
+    updateLockUI();
+
+    // Build record
+    const snap = snapshot();
+
+    // IMPORTANT: ensure JSON object, not weird references
+    const cleanSnap = JSON.parse(JSON.stringify(snap));
+
+    // You need a Supabase clients table mapping, but if you don't have it yet,
+    // we can store local clientId for now.
+    const clientId = cleanSnap.clientId || "";
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) return alert("Not logged in.");
+
+    const record = {
+      client_id: String(clientId),
+      coach_user_id: uid,
+      data: cleanSnap,
+      submitted_at: new Date().toISOString(),
+      client_signature_path: cleanSnap?.sigs?.client?.storagePath || null,
+      coach_signature_path: cleanSnap?.sigs?.coach?.storagePath || null,
+      spec_signature_path: null
+    };
+
+    const { error } = await sb
+  .from("ta_records_v2")
+  .insert(record);
+
+if (error) throw error;
+    
+    // Freeze everything after submit
+    setSaveState("Submitted. Locked for specialist review.", "good");
+    E.submitSupabase.disabled = true;
+    E.clientSign.disabled = true;
+    E.coachSign.disabled = true;
+    E.specFinal.disabled = true;
+  } catch (e) {
+    // If submit fails, unlock back so they can try again
+    formState.lockState = "locked";
+    updateLockUI();
+    alert("Submit failed: " + (e?.message || e));
+  }
+});
+E.reviewLoad.addEventListener("click", async ()=>{
+  if (!isSpecialist) return alert("Not allowed.");
+
+  const rid = prompt("Paste TA record ID (ta_records_v2.id):");
+  if (!rid) return;
+
+  try {
+    const { data, error } = await sb
+      .from("ta_records_v2")
+      .select("*")
+      .eq("id", rid)
+      .single();
+
+    if (error) throw error;
+
+    apply(data.data);
+    appMode = "review";
+    currentRecordId = data.id;
+    currentRecordStatus = data.status || "submitted";
+
+    // Lock by default; specialist can unlock via PIN section (we’ll restrict next)
+    formState.lockState = "locked";
+    updateLockUI();
+
+    setSaveState("Loaded for specialist review", "good");
+    syncSigBadges();
+  } catch (e) {
+    alert("Load failed: " + (e?.message || e));
+  }
+});
+
+E.reviewKickBack.addEventListener("click", async ()=>{
+  if (!isSpecialist || appMode !== "review" || !currentRecordId) {
+    return alert("Kick back is only available during specialist review.");
+  }
+
+  const reason = prompt("Reason for correction:");
+  if (!reason) return;
+
+  try {
+    const { data: userData } = await sb.auth.getUser();
+    const uid = userData?.user?.id || null;
+
+    const { error } = await sb
+      .from("ta_records_v2")
+      .update({
+        data: JSON.parse(JSON.stringify(snapshot())),
+        correction_reason: reason,
+        needs_correction_at: new Date().toISOString(),
+        needs_correction_by: uid
+      })
+      .eq("id", currentRecordId);
+
+    if (error) throw error;
+
+    currentRecordStatus = "needs_correction";
+    setSaveState("Kicked back for correction", "good");
+  } catch (e) {
+    alert("Kick back failed: " + (e?.message || e));
+  }
+});  
+
+/* -------------------- CLIENT CRUD (LOCAL) -------------------- */
 function addOrUpdateClient(existingId=null){
   const clients=getClients();
   const existing=existingId ? clients.find(c=>c.id===existingId) : null;
@@ -1147,13 +1355,13 @@ function addOrUpdateClient(existingId=null){
   const name=prompt("Client name:", existing?.name || "");
   if(!name) return;
 
-  const ps=prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStartISO) : "01/01/2026");
-  const pe=prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEndISO) : "12/31/2026");
+  const ps=prompt("Plan Start (MM/DD/YYYY):", existing ? isoToUS(existing.planStartISO) : "12/19/2025");
+  const pe=prompt("Plan End (MM/DD/YYYY):", existing ? isoToUS(existing.planEndISO) : "12/18/2026");
   const planStartISO=usToISO(ps||"");
   const planEndISO=usToISO(pe||"");
   if(!planStartISO || !planEndISO) return alert("Plan dates must be MM/DD/YYYY");
 
-  const workLocation=prompt("Default Work Location (optional):", existing?.workLocation || "") || "";
+  const workLocation=prompt("Work Location:", existing?.workLocation || "") || "";
 
   const tasksRaw=prompt("Tasks (one per line):", (existing?.tasks || DEFAULT_TASKS).join("\n")) || "";
   const tasks=tasksRaw.split("\n").map(s=>s.trim()).filter(Boolean);
@@ -1176,6 +1384,8 @@ function addOrUpdateClient(existingId=null){
     saveClients(clients);
     renderClientSelect(existing.id);
     onClientChange();
+    // Also upsert to Supabase (best effort)
+    upsertClientToSupabase(payload).catch(()=>{});
     return;
   }
 
@@ -1183,6 +1393,7 @@ function addOrUpdateClient(existingId=null){
   saveClients(clients);
   renderClientSelect(payload.id);
   onClientChange();
+  upsertClientToSupabase(payload).catch(()=>{});
 }
 
 E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
@@ -1191,9 +1402,9 @@ E.demoBtn.addEventListener("click", ()=>{
   saveClients([{
     id:"client_1",
     name:"Test Client A",
-    planStartISO:"2026-01-01",
-    planEndISO:"2026-12-31",
-    workLocation:"Job Site",
+    planStartISO:"2025-12-19",
+    planEndISO:"2026-12-18",
+    workLocation:"Albertsons",
     tasks: DEFAULT_TASKS,
     goals: DEFAULT_GOALS
   }]);
@@ -1210,16 +1421,42 @@ E.wipeAll.addEventListener("click", ()=>{
   location.reload();
 });
 
+/* ---------- LOCK / UNLOCK ---------- */
+function lockEdits(){
+  formState.lockState = "locked";
+  updateLockUI();
+  autosave();
+}
+function unlockEdits(){
+  formState.lockState = "unlocked";
+  E.unlockAt.value = nowStamp();
+  updateLockUI();
+  autosave();
+}
+E.unlockBtn.addEventListener("click", ()=>{
+  const pin = (E.unlockPin.value || "").trim();
+  if(pin !== PIN_DEFAULT){
+    alert("Incorrect PIN.");
+    return;
+  }
+  unlockEdits();
+  setSaveState("Unlocked for edits","good");
+});
+E.relockBtn.addEventListener("click", ()=>{
+  lockEdits();
+  setSaveState("Re-locked","good");
+});
+
 /* ---------- SIGNING ---------- */
 function finalizeClientSignature(){
   formState.sigs.client.printed = (E.clientPrinted.value||"").trim();
   formState.sigs.client.signedAt = nowStamp();
   E.clientSignedAt.textContent = formState.sigs.client.signedAt;
-  formState.lockState = "locked"; // client sign locks editing
+  formState.lockState = "locked";
   updateLockUI();
   syncSigBadges();
   autosave();
-  setSaveState("Client signed. Editing locked.","good");
+  setSaveState("Client signed. Form locked.","good");
 }
 function finalizeCoachSignature(){
   formState.sigs.coach.printed = (E.coachPrinted.value||"").trim();
@@ -1234,6 +1471,29 @@ function finalizeSpecSignature(){
   formState.lockState = "final";
   updateLockUI();
   syncSigBadges(); autosave(); setSaveState("Specialist signed. FINAL.","good");
+    // Persist specialist signature + approval to Supabase
+  (async ()=>{
+    try {
+      if (!isSpecialist || appMode !== "review" || !currentRecordId) return;
+
+      const { data: userData } = await sb.auth.getUser();
+      const uid = userData?.user?.id || null;
+
+      const { error } = await sb
+        .from("ta_records_v2")
+        .update({
+          data: JSON.parse(JSON.stringify(snapshot())),
+          approved_at: new Date().toISOString(),
+          approved_by: uid
+        })
+        .eq("id", currentRecordId);
+
+      if (error) throw error;
+      currentRecordStatus = "approved";
+    } catch (e) {
+      alert("Signed locally, but failed to update Supabase: " + (e?.message || e));
+    }
+  })();
 }
 
 E.clientClear.addEventListener("click", ()=>{ sigPads.client.clear(); autosave(); syncSigBadges(); });
@@ -1256,8 +1516,6 @@ E.coachSign.addEventListener("click", ()=>{
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
-  if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
-
   sigPads.coach.commit();
   if((formState.sigs.coach.strokes||0) <= 0) return alert("Coach signature is blank.");
   if(!(E.coachPrinted.value||"").trim()) return alert("Coach printed name is required.");
@@ -1266,255 +1524,176 @@ E.coachSign.addEventListener("click", ()=>{
   finalizeCoachSignature();
 });
 
-E.specFinal.addEventListener("click", async ()=>{
+E.specFinal.addEventListener("click", ()=>{
   const v = validateRequiredForSigning();
   if (!v.ok) return;
-
-  if (!isSpecialist || appMode !== "review") {
-    alert("Specialist signing is only available to the Specialist during review.");
-    return;
-  }
-  if (!formState.sigs.client.dataUrl || !formState.sigs.coach.dataUrl) {
-    alert("Specialist cannot sign until Client and Coach have signed.");
-    return;
-  }
 
   sigPads.spec.commit();
   if((formState.sigs.spec.strokes||0) <= 0) return alert("Specialist signature is blank.");
   if(!(E.specPrinted.value||"").trim()) return alert("Specialist printed name is required.");
   if(!formState.sigs.spec.dataUrl) return alert("Signature failed to capture. Try signing again.");
 
-  // Upload spec signature + update record
-  try {
-    if (!sb) return alert("Supabase not configured in code.");
+  finalizeSpecSignature();
+});
 
-    const snap = snapshot();
-    const specSigPath = await uploadSignatureIfPresent("spec", snap, snap.clientName, snap.entryDateISO);
+/* -------------------- SUPABASE: CLIENTS + SUBMIT -------------------- */
+function dataURLToBlob(dataUrl){
+  const parts = (dataUrl||"").split(",");
+  if (parts.length < 2) return null;
+  const mime = (parts[0].match(/data:(.*);base64/)||[])[1] || "application/octet-stream";
+  const bin = atob(parts[1]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
 
-    // Save paths into snapshot
-    snap.sigs.spec.storagePath = specSigPath || "";
+/* Pull clients from Supabase, store locally in the existing client format */
+async function reloadClientsFromSupabase(){
+  await refreshSessionAndUI();
+  if (!currentUser) {
+    showAuthOverlay(true);
+    throw new Error("Not signed in.");
+  }
 
-    finalizeSpecSignature();
+  // expects columns: id, display_name, plan_start, plan_end, work_location
+  const { data, error } = await sb
+    .from("clients")
+    .select("id, display_name, plan_start, plan_end, work_location")
+    .order("display_name", { ascending: true });
 
-    if (!currentRecordId) return alert("No Supabase record loaded for review.");
+  if (error) throw error;
 
-    const { error } = await sb
-      .from("ta_records_v2")
-      .update({
-        data: JSON.parse(JSON.stringify(snap)),
-        spec_signature_path: specSigPath || null,
-        approved_at: new Date().toISOString(),
-        approved_by: currentUserId
-      })
-      .eq("id", currentRecordId);
+  const mapped = (data||[]).map(row => ({
+    id: String(row.id),
+    name: row.display_name || ("Client " + row.id),
+    planStartISO: (row.plan_start ? String(row.plan_start) : ""),
+    planEndISO: (row.plan_end ? String(row.plan_end) : ""),
+    workLocation: row.work_location || "",
+    tasks: DEFAULT_TASKS.slice(),
+    goals: DEFAULT_GOALS.slice()
+  }));
 
-    if (error) throw error;
-    setSaveState("Specialist signed + saved to Supabase","good");
-  } catch (e) {
-    alert("Specialist save failed: " + (e?.message || e));
+  saveClients(mapped);
+  renderClientSelect(mapped[0]?.id || null);
+  onClientChange();
+  setSaveState(`Loaded ${mapped.length} client(s) from Supabase`, "good");
+}
+
+E.reloadClientsSupabase.addEventListener("click", async ()=>{
+  try{
+    setSaveState("Loading clients (Supabase)…", "warn");
+    await reloadClientsFromSupabase();
+  } catch (e){
+    setSaveState("Client load failed", "bad");
+    alert(e?.message || String(e));
   }
 });
 
-/* ---------- Supabase auth + storage + submit ---------- */
-function showAuthOverlay(show=true){
-  E.authOverlay.style.display = show ? "flex" : "none";
-}
-function showAuthMsg(text, kind="warn"){
-  E.authMsg.textContent = text;
-  E.authMsg.className = "msg " + kind;
-  E.authMsg.style.display = "block";
-}
+/* Best-effort upsert: when you add/edit locally, mirror to Supabase */
+async function upsertClientToSupabase(localClient){
+  await refreshSessionAndUI();
+  if (!currentUser) return;
 
-async function refreshSessionAndRole(){
-  if (!sb) return;
-  const { data, error } = await sb.auth.getSession();
-  if (error) return;
-  const session = data?.session;
-  const user = session?.user || null;
+  // We do a simple insert; if you want true upsert, you need a unique constraint.
+  // If clients.id in Supabase is bigint/uuid, we cannot force it to match local ids.
+  // So we insert by display_name and dates/location.
+  const payload = {
+    display_name: localClient.name,
+    plan_start: localClient.planStartISO || null,
+    plan_end: localClient.planEndISO || null,
+    work_location: localClient.workLocation || null
+  };
 
-  currentUserId = user?.id || null;
-  currentUserEmail = (user?.email || "").toLowerCase();
-  isSpecialist = SPECIALIST_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
-
-  setAuthPill();
-  syncSigBadges();
-}
-
-E.authOpenBtn.addEventListener("click", ()=>showAuthOverlay(true));
-E.authCloseBtn.addEventListener("click", ()=>showAuthOverlay(false));
-
-E.authLoginBtn.addEventListener("click", async ()=>{
-  if (!sb) return alert("Supabase URL/key not configured in code.");
-  const email = (E.authEmail.value || "").trim();
-  const password = (E.authPass.value || "").trim();
-  if (!email || !password) return showAuthMsg("Email and password required.", "bad");
-
-  showAuthMsg("Signing in...", "warn");
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) return showAuthMsg(error.message || String(error), "bad");
-
-  await refreshSessionAndRole();
-  showAuthMsg("Signed in.", "good");
-  setTimeout(()=>{ showAuthOverlay(false); }, 400);
-});
-
-E.authLogoutBtn.addEventListener("click", async ()=>{
-  if (!sb) return;
-  await sb.auth.signOut();
-  currentUserId = null;
-  currentUserEmail = "";
-  isSpecialist = false;
-  appMode = "coach";
-  currentRecordId = null;
-  setAuthPill();
-  syncSigBadges();
-  showAuthMsg("Signed out.", "warn");
-});
-
-function safeFilename(s){
-  return (s || "client").toLowerCase().replace(/[^a-z0-9]+/g,"_").slice(0,50);
-}
-function dataUrlToBlob(dataUrl){
-  const [meta, b64] = dataUrl.split(",");
-  const mime = (meta.match(/data:(.*?);base64/)||[])[1] || "image/png";
-  const bytes = atob(b64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
-async function uploadSignatureIfPresent(which, snap, clientName, entryDateISO){
-  if (!sb) return null;
-  const sig = snap?.sigs?.[which];
-  if (!sig?.dataUrl) return null;
-
-  const blob = dataUrlToBlob(sig.dataUrl);
-  const fname = `${safeFilename(clientName)}_${entryDateISO||"no_date"}_${which}_${Date.now()}.png`;
-  const path = `signatures/${fname}`;
-
-  const { error } = await sb.storage.from("ta_signatures").upload(path, blob, { upsert:true, contentType:"image/png" });
+  const { error } = await sb.from("clients").insert([payload]);
   if (error) throw error;
-  return path;
+}
+
+async function uploadSignatureIfPresent(kind, dataUrl, clientName, entryDateISO){
+  if (!dataUrl) return null;
+  const blob = dataURLToBlob(dataUrl);
+  if (!blob) return null;
+
+  const safeClient = (clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
+  const safeDate = (entryDateISO||"no_date").replace(/[^0-9\-]/g,"");
+  const filename = `${safeClient}/${safeDate}/${kind}_${Date.now()}.png`;
+
+  const { data, error } = await sb.storage.from(SIG_BUCKET).upload(filename, blob, {
+    contentType: "image/png",
+    upsert: false
+  });
+  if (error) throw error;
+  return data?.path || filename;
+}
+
+async function submitToSupabase(){
+  await refreshSessionAndUI();
+  if (!currentUser) {
+    showAuthOverlay(true);
+    throw new Error("You must be signed in to submit.");
+  }
+
+  const v = validateRequiredForSigning();
+  if (!v.ok) throw new Error("Fix required fields before submitting.");
+
+  const snap = snapshot();
+
+  // Upload signatures (if present)
+  const clientSigPath = await uploadSignatureIfPresent("client", snap.sigs?.client?.dataUrl, snap.clientName, snap.entryDateISO);
+  const coachSigPath  = await uploadSignatureIfPresent("coach",  snap.sigs?.coach?.dataUrl,  snap.clientName, snap.entryDateISO);
+  const specSigPath   = await uploadSignatureIfPresent("spec",   snap.sigs?.spec?.dataUrl,   snap.clientName, snap.entryDateISO);
+
+  // Find matching client in Supabase by display_name (simple for now)
+  const { data: crows, error: cerr } = await sb
+    .from("clients")
+    .select("id, display_name")
+    .eq("display_name", snap.clientName)
+    .limit(1);
+
+  if (cerr) throw cerr;
+
+  const supaClientId = crows?.[0]?.id;
+  if (!supaClientId) {
+    throw new Error("Client not found in Supabase. Click 'Reload Clients (Supabase)' or add the client in Supabase first.");
+  }
+
+  const record = {
+    client_id: String(supaClientId),
+    coach_user_id: currentUser.id,
+    data: snap,
+    client_signature_path: clientSigPath,
+    coach_signature_path: coachSigPath,
+    spec_signature_path: specSigPath
+  };
+
+ const TA_TABLE = "ta_records_v2";
+const { error } = await sb.from(TA_TABLE).insert([record]);
+  if (error) throw error;
+
+  setSaveState("Submitted to Supabase", "good");
 }
 
 E.submitSupabase.addEventListener("click", async ()=>{
-  try {
-    if (!sb) return alert("Supabase URL/key not configured in code.");
-    await refreshSessionAndRole();
-    if (!currentUserId) return alert("You must sign in to submit.");
-
-    // validation + signing gate
-    const v = validateRequiredForSigning();
-    if (!v.ok) return;
-
-    if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
-    if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
-
-    // hard lock locally
-    formState.lockState = "final";
-    updateLockUI();
-
-    const snap = snapshot();
-    const cleanSnap = JSON.parse(JSON.stringify(snap));
-
-    // upload client + coach signatures
-    const clientSigPath = await uploadSignatureIfPresent("client", cleanSnap, cleanSnap.clientName, cleanSnap.entryDateISO);
-    const coachSigPath  = await uploadSignatureIfPresent("coach",  cleanSnap, cleanSnap.clientName, cleanSnap.entryDateISO);
-
-    cleanSnap.sigs.client.storagePath = clientSigPath || "";
-    cleanSnap.sigs.coach.storagePath  = coachSigPath || "";
-
-    const record = {
-      client_id: String(cleanSnap.clientId || ""),
-      coach_user_id: currentUserId,
-      data: cleanSnap,
-      submitted_at: new Date().toISOString(),
-      client_signature_path: clientSigPath || null,
-      coach_signature_path: coachSigPath || null,
-      spec_signature_path: null
-    };
-
-    // Insert only. Do NOT send status.
-    const { error } = await sb.from("ta_records_v2").insert(record);
-    if (error) throw error;
-
-    E.submitSupabase.disabled = true;
-    setSaveState("Submitted to Supabase (v2). Locked.", "good");
-  } catch (e) {
-    // if submit fails, fall back to locked (not editable), but show error
-    alert("Submit failed: " + (e?.message || e));
+  try{
+    setSaveState("Submitting…", "warn");
+    await submitToSupabase();
+    alert("Submitted to Supabase successfully.");
+  } catch (e){
     setSaveState("Submit failed", "bad");
-  }
-});
-
-/* Specialist review: load TA by record ID, then sign or kick back */
-E.reviewLoad.addEventListener("click", async ()=>{
-  if (!sb) return alert("Supabase not configured in code.");
-  await refreshSessionAndRole();
-  if (!isSpecialist) return alert("Not allowed.");
-
-  const rid = prompt("Paste Supabase TA record ID (ta_records_v2.id):");
-  if (!rid) return;
-
-  try {
-    const { data, error } = await sb
-      .from("ta_records_v2")
-      .select("*")
-      .eq("id", rid)
-      .single();
-
-    if (error) throw error;
-
-    // Load data snapshot from DB into the form
-    currentRecordId = data.id;
-    appMode = "review";
-
-    // Apply snapshot directly (not template)
-    apply(data.data);
-
-    // Review is locked unless you decide to add edit controls later
-    formState.lockState = "locked";
-    updateLockUI();
-    syncSigBadges();
-
-    setSaveState("Loaded for specialist review", "good");
-  } catch (e) {
-    alert("Load failed: " + (e?.message || e));
-  }
-});
-
-E.reviewKickBack.addEventListener("click", async ()=>{
-  if (!sb) return alert("Supabase not configured in code.");
-  await refreshSessionAndRole();
-  if (!isSpecialist || appMode !== "review" || !currentRecordId) {
-    return alert("Kick back is only available during specialist review.");
-  }
-
-  const reason = prompt("Reason for correction (saved in Supabase):");
-  if (!reason) return;
-
-  try {
-    const snap = snapshot();
-    const { error } = await sb
-      .from("ta_records_v2")
-      .update({
-        data: JSON.parse(JSON.stringify(snap)),
-        correction_reason: reason,
-        needs_correction_at: new Date().toISOString(),
-        needs_correction_by: currentUserId
-      })
-      .eq("id", currentRecordId);
-
-    if (error) throw error;
-    setSaveState("Kicked back (saved to Supabase)", "warn");
-  } catch (e) {
-    alert("Kick back failed: " + (e?.message || e));
+    alert(e?.message || String(e));
   }
 });
 
 /* ---------- init ---------- */
 (async function init(){
   renderClientSelect();
+    // Determine current user email (Supabase auth)
+  try {
+    if (window.sb && sb?.auth?.getUser) {
+      const { data } = await sb.auth.getUser();
+      currentUserEmail = (data?.user?.email || "").toLowerCase();
+      isSpecialist = SPECIALIST_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
+    }
+  } catch {}
   const clients=getClients();
 
   if(clients.length){
@@ -1526,15 +1705,11 @@ E.reviewKickBack.addEventListener("click", async ()=>{
     setSaveState("No clients loaded","bad");
     updateLockUI();
   }
-
-  if (sb) {
-    await refreshSessionAndRole();
-    // keep role updated if auth changes
-    sb.auth.onAuthStateChange(async ()=>{ await refreshSessionAndRole(); });
-  }
-
   syncSigBadges();
   updateLockUI();
+
+  // auth bootstrap
+  refreshSessionAndUI().catch(()=>{});
 })();
 </script>
 </body>
