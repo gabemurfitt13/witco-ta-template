@@ -1183,12 +1183,12 @@ E.loadSupabaseClientsBtn.addEventListener("click", async ()=>{
 
     const normalized = (data || []).map(c => ({
       id: c.id,
-      name: c.name,
-      planStartISO: c.plan_start_iso || "",
-      planEndISO: c.plan_end_iso || "",
+      name: c.display_name || "",
+      planStartISO: c.plan_start || "",
+      planEndISO: c.plan_end || "",
       workLocation: c.work_location || "",
-      tasks: c.tasks ? (typeof c.tasks === 'string' ? JSON.parse(c.tasks) : c.tasks) : DEFAULT_TASKS,
-      goals: c.goals ? (typeof c.goals === 'string' ? JSON.parse(c.goals) : c.goals) : DEFAULT_GOALS
+      tasks: DEFAULT_TASKS,
+      goals: DEFAULT_GOALS
     }));
 
     saveClients(normalized);
