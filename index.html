@@ -1476,14 +1476,16 @@ E.submitSupabase.addEventListener("click", async () => {
 });
 
     // Upload preview PNG after we have the record ID
-    setSaveState("Uploading preview…", "warn");
-    try {
-      await uploadPreviewForRecord(data.id);
-      setSaveState(`Submitted. ID: ${data.id} (preview ok)`, "good");
-    } catch (e) {
-      console.warn("Preview upload failed:", e);
-      setSaveState(`Submitted. ID: ${data.id} (preview failed)`, "warn");
-    }
+setSaveState("Uploading preview…", "warn");
+
+uploadPreviewForRecord(data.id)
+  .then(() => {
+    setSaveState(`Submitted. ID: ${data.id} (preview ok)`, "good");
+  })
+  .catch((e) => {
+    console.warn("Preview upload failed:", e);
+    setSaveState(`Submitted. ID: ${data.id} (preview failed)`, "warn");
+  });
 
     formState.lockState = "final";
     updateLockUI();
