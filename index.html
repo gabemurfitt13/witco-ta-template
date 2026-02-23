@@ -1442,7 +1442,6 @@ E.submitSupabase.addEventListener("click", async () => {
       }
     } catch (e) {
       console.warn("Preview generation failed:", e);
-      // Do not fail the submit just because preview failed
     }
 
     const res = await fetch(EDGE_URL, {
@@ -1475,26 +1474,34 @@ E.submitSupabase.addEventListener("click", async () => {
   }
 });
 
-    // Upload preview PNG after we have the record ID
-setSaveState("Uploading preview…", "warn");
+/* Specialist review */
+E.reviewLoad.addEventListener("click", async ()=>{
+  await refreshSessionAndRole();
+  if (!isSpecialist) return alert("Not allowed.");
 
-uploadPreviewForRecord(data.id)
-  .then(() => {
-    setSaveState(`Submitted. ID: ${data.id} (preview ok)`, "good");
-  })
-  .catch((e) => {
-    console.warn("Preview upload failed:", e);
-    setSaveState(`Submitted. ID: ${data.id} (preview failed)`, "warn");
-  });
+  const rid = prompt("Paste Supabase TA record ID (ta_records_v2.id):");
+  if (!rid) return;
 
-    formState.lockState = "final";
+  try {
+    const { data, error } = await sb
+      .from("ta_records_v2")
+      .select("*")
+      .eq("id", rid)
+      .single();
+
+    if (error) throw error;
+
+    currentRecordId = data.id;
+    appMode = "review";
+
+    apply(data.data);
+
+    formState.lockState = "locked";
     updateLockUI();
-    E.submitSupabase.disabled = true;
-
-    alert(`Submitted successfully.\nID: ${data.id}`);
+    syncSigBadges();
+    setSaveState("Loaded for specialist review", "good");
   } catch (e) {
-    alert("Submit failed: " + (e?.message || e));
-    setSaveState("Submit failed", "bad");
+    alert("Load failed: " + (e?.message || e));
   }
 });
 
