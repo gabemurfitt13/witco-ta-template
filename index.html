@@ -452,6 +452,7 @@ const E = {
   reviewKickBack: el("reviewKickBack"),
 };
 
+
   async function captureTAAsBlob() {
   const node = document.getElementById("taCapture");
   if (!node) throw new Error("Could not find #taCapture");
@@ -471,6 +472,26 @@ const E = {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/png", 0.95);
   });
+}
+  async function uploadPreviewForRecord(taId) {
+  // Capture the visible TA card as a PNG
+  const blob = await captureTAAsBlob();
+  if (!blob) throw new Error("Preview capture failed");
+
+  // Upload to Supabase Storage bucket "ta_previews"
+  const filePath = `ta/${taId}.png`;
+
+  const { error: upErr } = await sb.storage
+    .from("ta_previews")
+    .upload(filePath, blob, { contentType: "image/png", upsert: true });
+
+  if (upErr) throw upErr;
+
+  // Get public URL (works only if the bucket is public)
+  const { data: pub } = sb.storage.from("ta_previews").getPublicUrl(filePath);
+  const previewUrl = pub?.publicUrl || "";
+
+  return { previewUrl, filePath };
 }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -1068,21 +1089,7 @@ function autosave(){
     const cid=currentClientId();
     if(!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-    // --- Create + upload preview PNG ---
-const taId = data.id;
-
-// Capture PNG
-const blob = await captureTAAsBlob();
-if (!blob) throw new Error("Preview capture failed");
-
-// Upload to Supabase Storage
-const filePath = `ta/${taId}.png`;
-const { error: upErr } = await sb.storage
-  .from("ta_previews")
-  .upload(filePath, blob, { contentType: "image/png", upsert: true });
-
-if (upErr) throw upErr;
-
+    
 // Get public URL
 const { data: pub } = sb.storage.from("ta_previews").getPublicUrl(filePath);
 const previewUrl = pub?.publicUrl || "";
@@ -1454,6 +1461,41 @@ E.submitSupabase.addEventListener("click", async () => {
         payload: JSON.parse(JSON.stringify(snap))
       })
     });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || `Edge submit failed (${res.status})`);
+    }
+
+    // Upload preview PNG after we have the record ID
+    setSaveState("Uploading preview…", "warn");
+    let previewUrl = "";
+    try {
+      const up = await uploadPreviewForRecord(data.id);
+      previewUrl = up.previewUrl || "";
+    } catch (e) {
+      console.warn("Preview upload failed:", e);
+      // Don't fail the submission just because preview failed
+    }
+
+    // OPTIONAL: if you want preview URL stored on the record,
+    // do it in the Edge Function instead (best).
+    // Doing it here requires RLS to allow update.
+    // If you insist, you'd need an endpoint for it.
+
+    formState.lockState = "final";
+    updateLockUI();
+    E.submitSupabase.disabled = true;
+
+    setSaveState(`Submitted. ID: ${data.id}${previewUrl ? " (preview ok)" : ""}`, "good");
+    alert(`Submitted successfully.\nID: ${data.id}${previewUrl ? "\nPreview saved." : "\nPreview failed (check console)."}`
+    );
+
+  } catch (e) {
+    alert("Submit failed: " + (e?.message || e));
+    setSaveState("Submit failed", "bad");
+  }
+});
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
