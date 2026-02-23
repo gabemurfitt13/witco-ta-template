@@ -452,8 +452,17 @@ const E = {
   reviewKickBack: el("reviewKickBack"),
 };
 
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage
+  }
+});
 
-  async function captureTAAsBlob() {
+/** Capture + preview upload **/
+async function captureTAAsBlob() {
   const node = document.getElementById("taCapture");
   if (!node) throw new Error("Could not find #taCapture");
 
@@ -473,12 +482,11 @@ const E = {
     canvas.toBlob((blob) => resolve(blob), "image/png", 0.95);
   });
 }
-  async function uploadPreviewForRecord(taId) {
-  // Capture the visible TA card as a PNG
+
+async function uploadPreviewForRecord(taId) {
   const blob = await captureTAAsBlob();
   if (!blob) throw new Error("Preview capture failed");
 
-  // Upload to Supabase Storage bucket "ta_previews"
   const filePath = `ta/${taId}.png`;
 
   const { error: upErr } = await sb.storage
@@ -487,20 +495,12 @@ const E = {
 
   if (upErr) throw upErr;
 
-  // Get public URL (works only if the bucket is public)
+  // Public URL only works if bucket is public
   const { data: pub } = sb.storage.from("ta_previews").getPublicUrl(filePath);
   const previewUrl = pub?.publicUrl || "";
 
   return { previewUrl, filePath };
 }
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-    storage: window.localStorage
-  }
-});
 
 let currentUserEmail = "";
 let currentUserId = null;
@@ -990,16 +990,13 @@ function syncSigBadges(){
     p.classList.toggle("bad", !ok);
   });
 
-  // Client must sign before coach sign
   E.coachSign.disabled = !hasClient;
 
-  // Specialist can only sign in review mode and only if allowlisted and client+coach signed
   const specAllowed = hasClient && hasCoach && isSpecialist && appMode === "review";
   E.specFinal.disabled = !specAllowed;
   E.specCanvas.style.pointerEvents = specAllowed ? "auto" : "none";
   E.specPrinted.disabled = !specAllowed;
 
-  // Submit allowed only after client+coach signed
   E.submitSupabase.disabled = !(hasClient && hasCoach);
 }
 
@@ -1081,7 +1078,6 @@ function apply(data){
 
 let saveTimer=null;
 function autosave(){
-  // In coach beta mode, do not write anything locally.
   if (COACH_BETA_MODE) return;
 
   clearTimeout(saveTimer);
@@ -1089,18 +1085,6 @@ function autosave(){
     const cid=currentClientId();
     if(!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-    
-// Get public URL
-const { data: pub } = sb.storage.from("ta_previews").getPublicUrl(filePath);
-const previewUrl = pub?.publicUrl || "";
-
-// Save URL onto the record
-const { error: updErr } = await sb
-  .from("ta_records_v2")
-  .update({ preview_url: previewUrl })
-  .eq("id", taId);
-
-if (updErr) throw updErr;
     setSaveState("Saved","good");
     setTimeout(()=>setSaveState("Saved (idle)",""),800);
   },150);
@@ -1298,7 +1282,6 @@ function finalizeClientSignature(){
   formState.sigs.client.signedAt = nowStamp();
   E.clientSignedAt.textContent = formState.sigs.client.signedAt;
 
-  // client signing locks editing
   formState.lockState = "locked";
   updateLockUI();
   syncSigBadges();
@@ -1361,7 +1344,6 @@ async function refreshSessionAndRole() {
   try {
     const { data, error } = await sb.auth.getSession();
 
-    // If Supabase reports an auth error, wipe the session
     if (error) {
       console.warn("Auth session error. Resetting session.", error);
       await sb.auth.signOut();
@@ -1376,7 +1358,6 @@ async function refreshSessionAndRole() {
     const session = data?.session || null;
     const user = session?.user || null;
 
-    // Broken state: session exists but user is null
     if (!user) {
       currentUserId = null;
       currentUserEmail = "";
@@ -1388,9 +1369,7 @@ async function refreshSessionAndRole() {
 
     currentUserId = user.id;
     currentUserEmail = (user.email || "").toLowerCase();
-    isSpecialist = SPECIALIST_EMAILS
-      .map(e => e.toLowerCase())
-      .includes(currentUserEmail);
+    isSpecialist = SPECIALIST_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
 
     setAuthPill();
     syncSigBadges();
@@ -1405,6 +1384,7 @@ async function refreshSessionAndRole() {
     syncSigBadges();
   }
 }
+
 E.authOpenBtn.addEventListener("click", ()=>showAuthOverlay(true));
 E.authCloseBtn.addEventListener("click", ()=>showAuthOverlay(false));
 
@@ -1445,9 +1425,7 @@ E.submitSupabase.addEventListener("click", async () => {
 
     const snap = snapshot();
 
-    const submittedBy =
-      (E.coachPrinted.value || "").trim() ||
-      "Coach";
+    const submittedBy = (E.coachPrinted.value || "").trim() || "Coach";
 
     setSaveState("Submitting…", "warn");
 
@@ -1469,44 +1447,18 @@ E.submitSupabase.addEventListener("click", async () => {
 
     // Upload preview PNG after we have the record ID
     setSaveState("Uploading preview…", "warn");
-    let previewUrl = "";
     try {
-      const up = await uploadPreviewForRecord(data.id);
-      previewUrl = up.previewUrl || "";
+      await uploadPreviewForRecord(data.id);
+      setSaveState(`Submitted. ID: ${data.id} (preview ok)`, "good");
     } catch (e) {
       console.warn("Preview upload failed:", e);
-      // Don't fail the submission just because preview failed
-    }
-
-    // OPTIONAL: if you want preview URL stored on the record,
-    // do it in the Edge Function instead (best).
-    // Doing it here requires RLS to allow update.
-    // If you insist, you'd need an endpoint for it.
-
-    formState.lockState = "final";
-    updateLockUI();
-    E.submitSupabase.disabled = true;
-
-    setSaveState(`Submitted. ID: ${data.id}${previewUrl ? " (preview ok)" : ""}`, "good");
-    alert(`Submitted successfully.\nID: ${data.id}${previewUrl ? "\nPreview saved." : "\nPreview failed (check console)."}`
-    );
-
-  } catch (e) {
-    alert("Submit failed: " + (e?.message || e));
-    setSaveState("Submit failed", "bad");
-  }
-});
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || `Edge submit failed (${res.status})`);
+      setSaveState(`Submitted. ID: ${data.id} (preview failed)`, "warn");
     }
 
     formState.lockState = "final";
     updateLockUI();
     E.submitSupabase.disabled = true;
 
-    setSaveState(`Submitted. ID: ${data.id}`, "good");
     alert(`Submitted successfully.\nID: ${data.id}`);
   } catch (e) {
     alert("Submit failed: " + (e?.message || e));
@@ -1611,7 +1563,6 @@ E.reviewKickBack.addEventListener("click", async ()=>{
 
 /* init */
 (function init(){
-  // Hide local-storage features in coach beta mode
   if (COACH_BETA_MODE) {
     [E.saveNow, E.resumeDraft, E.exportJson, E.importJson, E.wipeAll].forEach(btn => {
       if (btn) btn.style.display = "none";
@@ -1631,7 +1582,6 @@ E.reviewKickBack.addEventListener("click", async ()=>{
     updateLockUI();
   }
 
-  // Still allow specialist auth for review mode, but coaches don’t need it.
   refreshSessionAndRole();
   sb.auth.onAuthStateChange(async ()=>{ await refreshSessionAndRole(); });
 
