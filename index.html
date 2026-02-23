@@ -451,7 +451,14 @@ const E = {
   reviewKickBack: el("reviewKickBack"),
 };
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storage: window.localStorage
+  }
+});
 
 let currentUserEmail = "";
 let currentUserId = null;
@@ -1296,20 +1303,54 @@ function showAuthMsg(text, kind="warn"){
   E.authMsg.style.display = "block";
 }
 
-async function refreshSessionAndRole(){
-  const { data, error } = await sb.auth.getSession();
-  if (error) return;
-  const session = data?.session;
-  const user = session?.user || null;
+async function refreshSessionAndRole() {
+  try {
+    const { data, error } = await sb.auth.getSession();
 
-  currentUserId = user?.id || null;
-  currentUserEmail = (user?.email || "").toLowerCase();
-  isSpecialist = SPECIALIST_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
+    // If Supabase reports an auth error, wipe the session
+    if (error) {
+      console.warn("Auth session error. Resetting session.", error);
+      await sb.auth.signOut();
+      currentUserId = null;
+      currentUserEmail = "";
+      isSpecialist = false;
+      setAuthPill();
+      syncSigBadges();
+      return;
+    }
 
-  setAuthPill();
-  syncSigBadges();
+    const session = data?.session || null;
+    const user = session?.user || null;
+
+    // Broken state: session exists but user is null
+    if (!user) {
+      currentUserId = null;
+      currentUserEmail = "";
+      isSpecialist = false;
+      setAuthPill();
+      syncSigBadges();
+      return;
+    }
+
+    currentUserId = user.id;
+    currentUserEmail = (user.email || "").toLowerCase();
+    isSpecialist = SPECIALIST_EMAILS
+      .map(e => e.toLowerCase())
+      .includes(currentUserEmail);
+
+    setAuthPill();
+    syncSigBadges();
+
+  } catch (e) {
+    console.warn("Auth refresh crashed. Resetting session.", e);
+    try { await sb.auth.signOut(); } catch {}
+    currentUserId = null;
+    currentUserEmail = "";
+    isSpecialist = false;
+    setAuthPill();
+    syncSigBadges();
+  }
 }
-
 E.authOpenBtn.addEventListener("click", ()=>showAuthOverlay(true));
 E.authCloseBtn.addEventListener("click", ()=>showAuthOverlay(false));
 
