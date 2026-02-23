@@ -173,7 +173,7 @@
 </div>
 
 <div class="wrap">
-  <div class="card">
+  <div class="card" id="taCapture">
     <h1>Medicaid - DD Waivered Supported Employment Data Sheet</h1>
 
     <div class="sub">
@@ -345,6 +345,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <script>
 /* BUILD_ID: 2026-02-20__REV_01__SUPABASE_V2 */
@@ -451,6 +452,26 @@ const E = {
   reviewKickBack: el("reviewKickBack"),
 };
 
+  async function captureTAAsBlob() {
+  const node = document.getElementById("taCapture");
+  if (!node) throw new Error("Could not find #taCapture");
+
+  // Make sure canvases are committed so the signature image is up to date
+  try { sigPads?.client?.commit?.(); } catch {}
+  try { sigPads?.coach?.commit?.(); } catch {}
+  try { sigPads?.spec?.commit?.(); } catch {}
+
+  const canvas = await html2canvas(node, {
+    scale: 2,
+    backgroundColor: "#ffffff",
+    useCORS: true,
+    logging: false
+  });
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png", 0.95);
+  });
+}
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -1047,6 +1068,32 @@ function autosave(){
     const cid=currentClientId();
     if(!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+    // --- Create + upload preview PNG ---
+const taId = data.id;
+
+// Capture PNG
+const blob = await captureTAAsBlob();
+if (!blob) throw new Error("Preview capture failed");
+
+// Upload to Supabase Storage
+const filePath = `ta/${taId}.png`;
+const { error: upErr } = await sb.storage
+  .from("ta_previews")
+  .upload(filePath, blob, { contentType: "image/png", upsert: true });
+
+if (upErr) throw upErr;
+
+// Get public URL
+const { data: pub } = sb.storage.from("ta_previews").getPublicUrl(filePath);
+const previewUrl = pub?.publicUrl || "";
+
+// Save URL onto the record
+const { error: updErr } = await sb
+  .from("ta_records_v2")
+  .update({ preview_url: previewUrl })
+  .eq("id", taId);
+
+if (updErr) throw updErr;
     setSaveState("Saved","good");
     setTimeout(()=>setSaveState("Saved (idle)",""),800);
   },150);
