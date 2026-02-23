@@ -1424,10 +1424,26 @@ E.submitSupabase.addEventListener("click", async () => {
     if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
 
     const snap = snapshot();
-
     const submittedBy = (E.coachPrinted.value || "").trim() || "Coach";
 
     setSaveState("Submitting…", "warn");
+
+    // Build preview_data_url (PNG screenshot of the TA)
+    let previewDataUrl = "";
+    try {
+      const blob = await captureTAAsBlob();
+      if (blob) {
+        previewDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+    } catch (e) {
+      console.warn("Preview generation failed:", e);
+      // Do not fail the submit just because preview failed
+    }
 
     const res = await fetch(EDGE_URL, {
       method: "POST",
@@ -1436,7 +1452,8 @@ E.submitSupabase.addEventListener("click", async () => {
         beta_code: BETA_CODE,
         submitted_by: submittedBy,
         signed_at: new Date().toISOString(),
-        payload: JSON.parse(JSON.stringify(snap))
+        payload: JSON.parse(JSON.stringify(snap)),
+        preview_data_url: previewDataUrl
       })
     });
 
@@ -1444,6 +1461,19 @@ E.submitSupabase.addEventListener("click", async () => {
     if (!res.ok || !data.ok) {
       throw new Error(data.error || `Edge submit failed (${res.status})`);
     }
+
+    formState.lockState = "final";
+    updateLockUI();
+    E.submitSupabase.disabled = true;
+
+    setSaveState(`Submitted. ID: ${data.id}`, "good");
+    alert(`Submitted successfully.\nID: ${data.id}`);
+
+  } catch (e) {
+    alert("Submit failed: " + (e?.message || e));
+    setSaveState("Submit failed", "bad");
+  }
+});
 
     // Upload preview PNG after we have the record ID
     setSaveState("Uploading preview…", "warn");
