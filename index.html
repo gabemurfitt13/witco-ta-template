@@ -364,6 +364,9 @@ const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
 
 const el = (id) => document.getElementById(id);
 
+const EDGE_URL = "https://xhonexdwarrltxsiuevk.functions.supabase.co/submit-ta";
+const BETA_CODE = "WITCO-BETA-2026";
+  
 const E = {
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
@@ -1318,44 +1321,55 @@ E.authLogoutBtn.addEventListener("click", async ()=>{
   showAuthMsg("Signed out.", "warn");
 });
 
-/* Supabase submit (no status field) */
-E.submitSupabase.addEventListener("click", async ()=>{
+/* Beta submit via Edge Function (no coach sign-in required) */
+E.submitSupabase.addEventListener("click", async () => {
   try {
-    await refreshSessionAndRole();
-    if (!currentUserId) return alert("You must sign in to submit.");
-
+    // No auth required for coaches in beta.
     const v = validateRequiredForSigning();
     if (!v.ok) return;
 
     if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
     if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
 
-    // final lock locally once submitting
+    // Lock only after we confirm server success
+    const snap = snapshot();
+
+    const submittedBy =
+      (E.coachPrinted.value || "").trim() ||
+      (E.clientSelect.options[E.clientSelect.selectedIndex]?.text || "").trim() ||
+      "Coach";
+
+    setSaveState("Submitting…", "warn");
+
+    const res = await fetch(EDGE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        beta_code: BETA_CODE,
+        submitted_by: submittedBy,
+        signed_at: new Date().toISOString(),
+        payload: JSON.parse(JSON.stringify(snap))
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || `Edge submit failed (${res.status})`);
+    }
+
+    // Final lock locally only once it actually saved
     formState.lockState = "final";
     updateLockUI();
-
-    const snap = snapshot();
-    const record = {
-      client_id: String(snap.clientId || ""),
-      coach_user_id: currentUserId,
-      data: JSON.parse(JSON.stringify(snap)),
-      submitted_at: new Date().toISOString(),
-      client_signature_path: null,
-      coach_signature_path: null,
-      spec_signature_path: null
-    };
-
-    const { error } = await sb.from("ta_records_v2").insert(record);
-    if (error) throw error;
-
-    setSaveState("Submitted to Supabase (v2).", "good");
     E.submitSupabase.disabled = true;
+
+    setSaveState(`Submitted. ID: ${data.id}`, "good");
+    alert(`Submitted successfully.\nID: ${data.id}`);
+
   } catch (e) {
     alert("Submit failed: " + (e?.message || e));
     setSaveState("Submit failed", "bad");
   }
 });
-
 /* Specialist review */
 E.reviewLoad.addEventListener("click", async ()=>{
   await refreshSessionAndRole();
