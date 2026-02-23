@@ -352,8 +352,16 @@
 const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_8e-o03OLnP1rAoDTGeL-0A_iQ3fTmpd";
 
-// Put YOUR specialist email here (lowercase). You can add billing clerk later.
-const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"]; // change to your actual specialist email used in Supabase Auth
+/**
+ * BETA MODE:
+ * - coaches do NOT need to sign in
+ * - no drafts/export/import/wipe (nothing saved locally by this app)
+ * - submit goes to Edge Function
+ */
+const COACH_BETA_MODE = true;
+
+// Specialist allowlist (lowercase)
+const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
 
 const CLIENTS_KEY = "witco_clients_supabase_v2";
 const STORAGE_KEY_BASE = "witco_ta_supabase_v2";
@@ -362,11 +370,11 @@ const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
 const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
 
-const el = (id) => document.getElementById(id);
-
 const EDGE_URL = "https://xhonexdwarrltxsiuevk.functions.supabase.co/submit-ta";
 const BETA_CODE = "WITCO-BETA-2026";
-  
+
+const el = (id) => document.getElementById(id);
+
 const E = {
   clientSelect: el("clientSelect"),
   planStartUS: el("planStartUS"),
@@ -477,8 +485,8 @@ function setLockPill() {
 
 function setAuthPill() {
   if (!currentUserId) {
-    E.authPill.textContent = "Signed out";
-    E.authPill.className = "pill bad";
+    E.authPill.textContent = COACH_BETA_MODE ? "Coach beta (no sign-in required)" : "Signed out";
+    E.authPill.className = COACH_BETA_MODE ? "pill warn" : "pill bad";
     return;
   }
   E.authPill.textContent = isSpecialist ? `Signed in (Specialist): ${currentUserEmail}` : `Signed in: ${currentUserEmail}`;
@@ -909,6 +917,8 @@ function setEditingEnabled(enabled){
   E.saveNow.disabled=!enabled;
   E.exportJson.disabled=!enabled;
   E.importJson.disabled=!enabled;
+  E.resumeDraft.disabled=!enabled;
+  E.wipeAll.disabled=!enabled;
 }
 
 function updateLockUI(){
@@ -1022,6 +1032,9 @@ function apply(data){
 
 let saveTimer=null;
 function autosave(){
+  // In coach beta mode, do not write anything locally.
+  if (COACH_BETA_MODE) return;
+
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
     const cid=currentClientId();
@@ -1092,12 +1105,14 @@ function download(filename,text){
 }
 
 E.saveNow.addEventListener("click", ()=>{
+  if (COACH_BETA_MODE) return alert("Draft saving is disabled in coach beta mode.");
   const cid=currentClientId(); if(!cid) return;
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
 
 E.resumeDraft.addEventListener("click", ()=>{
+  if (COACH_BETA_MODE) return alert("Draft resume is disabled in coach beta mode.");
   const cid=currentClientId();
   if(!cid) return;
   const raw = localStorage.getItem(storageKeyFor(cid));
@@ -1107,12 +1122,14 @@ E.resumeDraft.addEventListener("click", ()=>{
 });
 
 E.exportJson.addEventListener("click", ()=>{
+  if (COACH_BETA_MODE) return alert("Export is disabled in coach beta mode.");
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
   download(`TA_${safe}_${data.entryDateISO||"no_date"}.json`, JSON.stringify(data,null,2));
 });
 
 E.importJson.addEventListener("click", ()=>{
+  if (COACH_BETA_MODE) return alert("Import is disabled in coach beta mode.");
   const raw=prompt("Paste JSON:");
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
@@ -1205,6 +1222,7 @@ E.loadSupabaseClientsBtn.addEventListener("click", async ()=>{
 });
 
 E.wipeAll.addEventListener("click", ()=>{
+  if (COACH_BETA_MODE) return alert("Wipe is disabled in coach beta mode.");
   if(!confirm("Wipe ALL local data on this device?")) return;
   localStorage.removeItem(CLIENTS_KEY);
   Object.keys(localStorage).forEach(k=>{
@@ -1324,19 +1342,16 @@ E.authLogoutBtn.addEventListener("click", async ()=>{
 /* Beta submit via Edge Function (no coach sign-in required) */
 E.submitSupabase.addEventListener("click", async () => {
   try {
-    // No auth required for coaches in beta.
     const v = validateRequiredForSigning();
     if (!v.ok) return;
 
     if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
     if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
 
-    // Lock only after we confirm server success
     const snap = snapshot();
 
     const submittedBy =
       (E.coachPrinted.value || "").trim() ||
-      (E.clientSelect.options[E.clientSelect.selectedIndex]?.text || "").trim() ||
       "Coach";
 
     setSaveState("Submitting…", "warn");
@@ -1357,19 +1372,18 @@ E.submitSupabase.addEventListener("click", async () => {
       throw new Error(data.error || `Edge submit failed (${res.status})`);
     }
 
-    // Final lock locally only once it actually saved
     formState.lockState = "final";
     updateLockUI();
     E.submitSupabase.disabled = true;
 
     setSaveState(`Submitted. ID: ${data.id}`, "good");
     alert(`Submitted successfully.\nID: ${data.id}`);
-
   } catch (e) {
     alert("Submit failed: " + (e?.message || e));
     setSaveState("Submit failed", "bad");
   }
 });
+
 /* Specialist review */
 E.reviewLoad.addEventListener("click", async ()=>{
   await refreshSessionAndRole();
@@ -1392,7 +1406,6 @@ E.reviewLoad.addEventListener("click", async ()=>{
 
     apply(data.data);
 
-    // keep it locked while reviewing
     formState.lockState = "locked";
     updateLockUI();
     syncSigBadges();
@@ -1468,6 +1481,13 @@ E.reviewKickBack.addEventListener("click", async ()=>{
 
 /* init */
 (function init(){
+  // Hide local-storage features in coach beta mode
+  if (COACH_BETA_MODE) {
+    [E.saveNow, E.resumeDraft, E.exportJson, E.importJson, E.wipeAll].forEach(btn => {
+      if (btn) btn.style.display = "none";
+    });
+  }
+
   renderClientSelect();
   const clients=getClients();
 
@@ -1481,6 +1501,7 @@ E.reviewKickBack.addEventListener("click", async ()=>{
     updateLockUI();
   }
 
+  // Still allow specialist auth for review mode, but coaches don’t need it.
   refreshSessionAndRole();
   sb.auth.onAuthStateChange(async ()=>{ await refreshSessionAndRole(); });
 
