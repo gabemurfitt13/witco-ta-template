@@ -1505,37 +1505,6 @@ E.reviewLoad.addEventListener("click", async ()=>{
   }
 });
 
-/* Specialist review */
-E.reviewLoad.addEventListener("click", async ()=>{
-  await refreshSessionAndRole();
-  if (!isSpecialist) return alert("Not allowed.");
-
-  const rid = prompt("Paste Supabase TA record ID (ta_records_v2.id):");
-  if (!rid) return;
-
-  try {
-    const { data, error } = await sb
-      .from("ta_records_v2")
-      .select("*")
-      .eq("id", rid)
-      .single();
-
-    if (error) throw error;
-
-    currentRecordId = data.id;
-    appMode = "review";
-
-    apply(data.data);
-
-    formState.lockState = "locked";
-    updateLockUI();
-    syncSigBadges();
-    setSaveState("Loaded for specialist review", "good");
-  } catch (e) {
-    alert("Load failed: " + (e?.message || e));
-  }
-});
-
 E.specFinal.addEventListener("click", async ()=>{
   const v = validateRequiredForSigning();
   if (!v.ok) return;
