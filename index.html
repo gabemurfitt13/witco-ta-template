@@ -1277,6 +1277,40 @@ E.clientSelect.addEventListener("change", () => {
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
 E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
 
+// 1) Demo clients data (simple)
+const DEMO_CLIENTS = [
+  {
+    id: "demo_1",
+    name: "Demo Client",
+    planStartISO: "2026-01-01",
+    planEndISO: "2026-12-31",
+    workLocation: "Demo Site",
+    tasks: ["Clock in on time", "Ask for help when stuck"],
+    goals: ["Task completion", "Workplace communication"]
+  }
+];
+
+// 2) Wire up the demo button
+const demoBtn = document.getElementById("demoBtn");
+if (demoBtn) {
+  demoBtn.addEventListener("click", () => {
+    const clients = getClients();
+
+    // If you already have clients, don't overwrite them
+    if (!clients || clients.length === 0) {
+      saveClients(DEMO_CLIENTS);
+    }
+
+    // Rebuild dropdown and select the demo client
+    renderClientSelect("demo_1");
+
+    // Load the selected client into the form
+    onClientChange();
+
+    setSaveState("Demo clients loaded", "good");
+  });
+}  
+
 ["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
   el(id).addEventListener("input", autosave);
   el(id).addEventListener("change", autosave);
