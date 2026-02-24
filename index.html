@@ -1440,14 +1440,22 @@ function addOrUpdateClient(existingId=null){
     clients[idx]=payload;
     saveClients(clients);
     renderClientSelect(existing.id);
-    onClientChange();
+
+    // Ensure the updated template is reflected immediately.
+    localStorage.removeItem(storageKeyFor(existing.id));
+    loadClientTemplate(payload);
+    setSaveState("Client updated; template applied", "good");
     return;
   }
 
   clients.push(payload);
   saveClients(clients);
   renderClientSelect(payload.id);
-  onClientChange();
+
+  // New client: apply template immediately and start fresh.
+  localStorage.removeItem(storageKeyFor(payload.id));
+  loadClientTemplate(payload);
+  setSaveState("Client added; template applied", "good");
 }
 
 E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
