@@ -350,6 +350,8 @@
 <script>
 /* BUILD_ID: 2026-02-20__REV_01__SUPABASE_V2 */
 
+const BUILD_ID = "2026-02-20__REV_01__SUPABASE_V2";
+
 const SUPABASE_URL = "https://xhonexdwarrltxsiuevk.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_8e-o03OLnP1rAoDTGeL-0A_iQ3fTmpd";
 
@@ -367,6 +369,7 @@ const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
 const CLIENTS_KEY = "witco_clients_supabase_v2";
 const STORAGE_KEY_BASE = "witco_ta_supabase_v2";
 const TEMPLATE_KEY = "witco_ta_template_v1";
+const BUILD_KEY = "witco_ta_build_id";
 
 const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
 const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
@@ -1025,6 +1028,18 @@ function saveTemplateDefaults(tasks, goals) {
   localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ tasks, goals }));
 }
 
+function ensureStorageForBuild() {
+  const lastBuild = localStorage.getItem(BUILD_KEY) || "";
+  if (lastBuild === BUILD_ID) return;
+
+  // Clear only template + drafts when build changes.
+  localStorage.removeItem(TEMPLATE_KEY);
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith(STORAGE_KEY_BASE + ":")) localStorage.removeItem(k);
+  });
+  localStorage.setItem(BUILD_KEY, BUILD_ID);
+}
+
 function updateTemplateDefaultsFromForm() {
   const tasks = getTasks()
     .map(t => (t.title || "").trim())
@@ -1211,23 +1226,12 @@ function onClientChange() {
   const client = getClientById(cid);
   if (!client) return;
 
-  // 1) If there is a saved draft for this client, load it and STOP
-  const raw = localStorage.getItem(storageKeyFor(cid));
-  if (raw) {
-    try {
-      apply(JSON.parse(raw));
-      setSaveState("Loaded saved TA", "good");
-      return;
-    } catch (e) {
-      console.warn("Saved draft corrupted, loading template instead:", e);
-    }
-  }
-
-  // 2) Otherwise load the fresh template
+  // Always start from the template when switching clients.
+  // Drafts can be loaded manually via Resume Draft.
   loadClientTemplate(client);
   setSaveState("Started new TA (template loaded)", "good");
 
-  // 3) Create the first saved draft right away
+  // Create the first saved draft right away
   autosave();
 }
   // NOTE: client storage helpers are defined earlier using `CLIENTS_KEY`.
@@ -1804,6 +1808,8 @@ E.reviewKickBack.addEventListener("click", async ()=>{
 
 /* init */
 (function init(){
+  ensureStorageForBuild();
+
   if (COACH_BETA_MODE) {
     [E.saveNow, E.resumeDraft, E.exportJson, E.importJson, E.wipeAll].forEach(btn => {
       if (btn) btn.style.display = "none";
