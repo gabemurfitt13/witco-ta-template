@@ -368,9 +368,8 @@ const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
 
 const CLIENTS_KEY = "witco_clients_supabase_v2";
 const STORAGE_KEY_BASE = `witco_ta_supabase_v2:${BUILD_ID}`;
-const TEMPLATE_KEY = `witco_ta_template_v1:${BUILD_ID}`;
 
-const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
+  const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
 const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
 
@@ -1027,20 +1026,6 @@ function saveTemplateDefaults(tasks, goals) {
   localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ tasks, goals }));
 }
 
-
-function updateTemplateDefaultsFromForm() {
-  const tasks = getTasks()
-    .map(t => (t.title || "").trim())
-    .filter(Boolean);
-  const goals = getGoals()
-    .map(g => (g.title || "").trim())
-    .filter(Boolean);
-
-  const nextTasks = tasks.length ? tasks : DEFAULT_TASKS.slice();
-  const nextGoals = goals.length ? goals : DEFAULT_GOALS.slice();
-  saveTemplateDefaults(nextTasks, nextGoals);
-}
-
 function renderClientSelect(selectedId=null) {
   const clients = getClients();
   E.clientSelect.innerHTML = "";
@@ -1180,8 +1165,8 @@ function loadClientTemplate(client){
   E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
   E.additionalNotes.value="";
 
- const seedTasks = (Array.isArray(client.tasks) && client.tasks.length) ? client.tasks : DEFAULT_TASKS;
-const seedGoals = (Array.isArray(client.goals) && client.goals.length) ? client.goals : DEFAULT_GOALS;
+ const seedTasks = (Array.isArray(client.tasks) && client.tasks.length) ? client.tasks : DEFAULT_TASKS.slice();
+const seedGoals = (Array.isArray(client.goals) && client.goals.length) ? client.goals : DEFAULT_GOALS.slice();
 
   setTasks(seedTasks.map(t=>({title:t,support:"",note:""})));
   setGoals(seedGoals.map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
@@ -1398,18 +1383,21 @@ function addOrUpdateClient(existingId=null){
 
 E.addClientBtn.addEventListener("click", ()=>addOrUpdateClient(null));
 E.editClientBtn.addEventListener("click", ()=>{ const cid=currentClientId(); if(!cid) return; addOrUpdateClient(cid); });
-E.demoBtn.addEventListener("click", ()=>{
-  saveClients([{
-    id:"client_1",
-    name:"Test Client A",
-    planStartISO:"2026-01-01",
-    planEndISO:"2026-12-31",
-    workLocation:"Job Site",
-    tasks: DEFAULT_TASKS,
-    goals: DEFAULT_GOALS
-  }]);
-  renderClientSelect("client_1");
+E.demoBtn.addEventListener("click", () => {
+  const demoClients = [{
+    id: "demo_1",
+    name: "Demo Client",
+    planStartISO: "2026-01-01",
+    planEndISO: "2026-12-31",
+    workLocation: "Demo Site",
+    tasks: ["Clock in on time", "Ask for help when stuck"],
+    goals: ["Task completion", "Workplace communication"]
+  }];
+
+  saveClients(demoClients);
+  renderClientSelect("demo_1");
   onClientChange();
+  setSaveState("Demo clients loaded", "good");
 });
 
 E.loadSupabaseClientsBtn.addEventListener("click", async ()=>{
