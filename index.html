@@ -366,6 +366,7 @@ const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
 
 const CLIENTS_KEY = "witco_clients_supabase_v2";
 const STORAGE_KEY_BASE = "witco_ta_supabase_v2";
+const TEMPLATE_KEY = "witco_ta_template_v1";
 
 const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
 const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
@@ -1006,6 +1007,37 @@ function saveClients(clients) { localStorage.setItem(CLIENTS_KEY, JSON.stringify
 function getClientById(id) { return getClients().find(c => c.id === id); }
 function currentClientId() { return E.clientSelect.value || ""; }
 
+function getTemplateDefaults() {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_KEY);
+    if (!raw) return { tasks: [], goals: [] };
+    const data = JSON.parse(raw);
+    return {
+      tasks: Array.isArray(data?.tasks) ? data.tasks : [],
+      goals: Array.isArray(data?.goals) ? data.goals : []
+    };
+  } catch {
+    return { tasks: [], goals: [] };
+  }
+}
+
+function saveTemplateDefaults(tasks, goals) {
+  localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ tasks, goals }));
+}
+
+function updateTemplateDefaultsFromForm() {
+  const tasks = getTasks()
+    .map(t => (t.title || "").trim())
+    .filter(Boolean);
+  const goals = getGoals()
+    .map(g => (g.title || "").trim())
+    .filter(Boolean);
+
+  const nextTasks = tasks.length ? tasks : DEFAULT_TASKS.slice();
+  const nextGoals = goals.length ? goals : DEFAULT_GOALS.slice();
+  saveTemplateDefaults(nextTasks, nextGoals);
+}
+
 function renderClientSelect(selectedId=null) {
   const clients = getClients();
   E.clientSelect.innerHTML = "";
@@ -1131,12 +1163,17 @@ function autosave() {
     const cid = currentClientId();
     if (!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
+    updateTemplateDefaultsFromForm();
     setSaveState("Saved", "good");
     setTimeout(() => setSaveState("Saved (idle)", ""), 800);
   }, 150);
 }
 
 function loadClientTemplate(client){
+  const template = getTemplateDefaults();
+  const templateTasks = template.tasks.length ? template.tasks : null;
+  const templateGoals = template.goals.length ? template.goals : null;
+
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
   E.workLocation.value=client.workLocation||"";
@@ -1144,8 +1181,11 @@ function loadClientTemplate(client){
   E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
   E.additionalNotes.value="";
 
-  setTasks((client.tasks || DEFAULT_TASKS).map(t=>({title:t,support:"",note:""})));
-  setGoals((client.goals || DEFAULT_GOALS).map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
+  const seedTasks = templateTasks || client.tasks || DEFAULT_TASKS;
+  const seedGoals = templateGoals || client.goals || DEFAULT_GOALS;
+
+  setTasks(seedTasks.map(t=>({title:t,support:"",note:""})));
+  setGoals(seedGoals.map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
 
   formState.lockState="unlocked";
   formState.sigs = {
