@@ -1044,7 +1044,54 @@ function snapshot(){
     sigs:formState.sigs
   };
 }
+  function restoreSnapshot(s){
+  if(!s) return;
 
+  // Basic fields
+  if (E.workLocation) E.workLocation.value = s.workLocation || "";
+  if (E.entryDateUS) E.entryDateUS.value = isoToUS(s.entryDateISO || ""); // if you have isoToUS
+  if (E.timeIn) E.timeIn.value = s.timeIn || "";
+  if (E.timeOut) E.timeOut.value = s.timeOut || "";
+  if (E.totalTime) E.totalTime.value = s.totalTime || "";
+  if (E.additionalNotes) E.additionalNotes.value = s.additionalNotes || "";
+
+  // State
+  formState.lockState = s.lockState || formState.lockState;
+  formState.sigs = s.sigs || formState.sigs;
+
+  // Tasks + Goals
+  // These depend on how your UI is built. We’ll do it safely:
+  setTasksFromSnapshot(s.tasks);
+  setGoalsFromSnapshot(s.goals);
+
+  // Recompute anything
+  if (typeof recomputeTotalTime === "function") recomputeTotalTime();
+  if (typeof renderLockUI === "function") renderLockUI();
+}
+function clearChildren(node){
+  if(!node) return;
+  while(node.firstChild) node.removeChild(node.firstChild);
+}
+
+function setTasksFromSnapshot(tasks){
+  if(!Array.isArray(tasks)) tasks = [];
+  clearChildren(E.tasksBody);
+  tasks.forEach(t => addTaskRow(E.tasksBody, {
+    title: t.title || "",
+    support: t.support || "",
+    note: t.note || ""
+  }));
+}
+
+function setGoalsFromSnapshot(goals){
+  if(!Array.isArray(goals)) goals = [];
+  clearChildren(E.goalsBody);
+  goals.forEach(g => addGoalRow(E.goalsBody, {
+    title: g.title || "",
+    prompts: Array.isArray(g.prompts) && g.prompts.length ? g.prompts : [{code:"",count:1}],
+    note: g.note || ""
+  }));
+}
 function apply(data){
   const cid=currentClientId();
   const c=getClientById(cid);
@@ -1076,18 +1123,17 @@ function apply(data){
   updateLockUI();
 }
 
-let saveTimer=null;
-function autosave(){
-  if (COACH_BETA_MODE) return;
+let saveTimer = null;
 
+function autosave() {
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{
-    const cid=currentClientId();
-    if(!cid) return;
+  saveTimer = setTimeout(() => {
+    const cid = currentClientId();
+    if (!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-    setSaveState("Saved","good");
-    setTimeout(()=>setSaveState("Saved (idle)",""),800);
-  },150);
+    setSaveState("Saved", "good");
+    setTimeout(() => setSaveState("Saved (idle)", ""), 800);
+  }, 150);
 }
 
 function loadClientTemplate(client){
@@ -1120,15 +1166,126 @@ function loadClientTemplate(client){
   autosave();
 }
 
-function onClientChange(){
-  const cid=currentClientId();
-  const client=getClientById(cid);
-  if(!client) return;
+function onClientChange() {
+  const cid = currentClientId();
+  const client = getClientById(cid);
+  if (!client) return;
+
+  // 1) If there is a saved draft for this client, load it and STOP
+  const raw = localStorage.getItem(storageKeyFor(cid));
+  if (raw) {
+    try {
+      apply(JSON.parse(raw));
+      setSaveState("Loaded saved TA", "good");
+      return;
+    } catch (e) {
+      console.warn("Saved draft corrupted, loading template instead:", e);
+    }
+  }
+
+  // 2) Otherwise load the fresh template
   loadClientTemplate(client);
   setSaveState("Started new TA (template loaded)", "good");
-}
-E.clientSelect.addEventListener("change", ()=>onClientChange());
 
+  // 3) Create the first saved draft right away
+  autosave();
+}
+  const LS_CLIENTS_KEY = "ta_clients_v1";
+
+function loadClients() {
+  try { return JSON.parse(localStorage.getItem(LS_CLIENTS_KEY) || "{}"); }
+  catch { return {}; }
+}
+function loadSavedClient(cid){
+  if(!cid) return;
+
+  const raw = localStorage.getItem(storageKeyFor(cid));
+  if(!raw) return;
+
+  try{
+    const snap = JSON.parse(raw);
+    restoreSnapshot(snap); // <-- see Step 4
+    setSaveState("Loaded","good");
+    setTimeout(()=>setSaveState("Loaded (idle)",""),800);
+  }catch(e){
+    console.warn("Failed to load saved client:", e);
+  }
+}
+function saveClients(clients) {
+  localStorage.setItem(LS_CLIENTS_KEY, JSON.stringify(clients));
+}
+
+function draftKey(clientId) {
+  return `ta_draft_${clientId}`;
+}
+
+function loadDraft(clientId) {
+  try { return JSON.parse(localStorage.getItem(draftKey(clientId)) || "null"); }
+  catch { return null; }
+}
+
+function saveDraft(clientId, draft) {
+  localStorage.setItem(draftKey(clientId), JSON.stringify(draft));
+}
+
+function clearDraft(clientId) {
+  localStorage.removeItem(draftKey(clientId));
+}
+  function saveActiveClientProfile() {
+  if (!ACTIVE_CLIENT_ID) return;
+
+  // IMPORTANT: change these lines to match your real data
+  const profile = {
+    // these are your "follows the client" fields
+    clientName: (E.clientName?.value || "").trim(),
+    planStart: E.planStart?.value || "",
+    planEnd: E.planEnd?.value || "",
+    location: (E.location?.value || "").trim(),
+
+    // these MUST match wherever your goals/tasks live
+    goals: formState.goals || [],
+    tasks: formState.tasks || []
+  };
+
+  ALL_CLIENTS[ACTIVE_CLIENT_ID] = profile;
+  lsSaveAll(ALL_CLIENTS);
+}
+
+function loadClientProfile(clientId) {
+  const profile = ALL_CLIENTS[clientId];
+  if (!profile) return;
+
+  // load fields back into the form
+  if (E.clientName) E.clientName.value = profile.clientName || "";
+  if (E.planStart) E.planStart.value = profile.planStart || "";
+  if (E.planEnd) E.planEnd.value = profile.planEnd || "";
+  if (E.location) E.location.value = profile.location || "";
+
+  // load goals/tasks back into state
+  formState.goals = Array.isArray(profile.goals) ? profile.goals : [];
+  formState.tasks = Array.isArray(profile.tasks) ? profile.tasks : [];
+
+  // re-draw the UI (use whatever functions you actually have)
+  if (typeof renderGoals === "function") renderGoals();
+  if (typeof renderTasks === "function") renderTasks();
+}
+  E.clientName.addEventListener("focus", () => {
+  // remember which client we were on before the user edits the name
+  ACTIVE_CLIENT_ID = getClientIdFromForm();
+});
+
+E.clientName.addEventListener("blur", () => {
+  // save old client first
+  saveActiveClientProfile();
+
+  // now switch to the newly typed client
+  ACTIVE_CLIENT_ID = getClientIdFromForm();
+
+  // load that client's saved profile (if it exists)
+  loadClientProfile(ACTIVE_CLIENT_ID);
+});
+  
+E.clientSelect.addEventListener("change", ()=>onClientChange());
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
 E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
 
@@ -1150,14 +1307,14 @@ function download(filename,text){
 }
 
 E.saveNow.addEventListener("click", ()=>{
-  if (COACH_BETA_MODE) return alert("Draft saving is disabled in coach beta mode.");
+  if (COACH_BETA_MODE) alert("Coach beta mode: this will save only on this device/browser.");
   const cid=currentClientId(); if(!cid) return;
   localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
   setSaveState("Saved","good");
 });
 
 E.resumeDraft.addEventListener("click", ()=>{
-  if (COACH_BETA_MODE) return alert("Draft resume is disabled in coach beta mode.");
+ if (COACH_BETA_MODE) alert("Coach beta mode: this will save only on this device/browser.");
   const cid=currentClientId();
   if(!cid) return;
   const raw = localStorage.getItem(storageKeyFor(cid));
@@ -1167,14 +1324,14 @@ E.resumeDraft.addEventListener("click", ()=>{
 });
 
 E.exportJson.addEventListener("click", ()=>{
-  if (COACH_BETA_MODE) return alert("Export is disabled in coach beta mode.");
+  if (COACH_BETA_MODE) alert("Coach beta mode: this will save only on this device/browser.");
   const data=snapshot();
   const safe=(data.clientName||"client").replace(/[^a-z0-9]+/gi,"_").slice(0,40);
   download(`TA_${safe}_${data.entryDateISO||"no_date"}.json`, JSON.stringify(data,null,2));
 });
 
 E.importJson.addEventListener("click", ()=>{
-  if (COACH_BETA_MODE) return alert("Import is disabled in coach beta mode.");
+ if (COACH_BETA_MODE) alert("Coach beta mode: this will save only on this device/browser.");
   const raw=prompt("Paste JSON:");
   if(!raw) return;
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
