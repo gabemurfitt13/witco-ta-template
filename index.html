@@ -1269,21 +1269,6 @@ function loadClientProfile(clientId) {
   if (typeof renderGoals === "function") renderGoals();
   if (typeof renderTasks === "function") renderTasks();
 }
-  E.clientName.addEventListener("focus", () => {
-  // remember which client we were on before the user edits the name
-  ACTIVE_CLIENT_ID = getClientIdFromForm();
-});
-
-E.clientName.addEventListener("blur", () => {
-  // save old client first
-  saveActiveClientProfile();
-
-  // now switch to the newly typed client
-  ACTIVE_CLIENT_ID = getClientIdFromForm();
-
-  // load that client's saved profile (if it exists)
-  loadClientProfile(ACTIVE_CLIENT_ID);
-});
   
 E.clientSelect.addEventListener("change", ()=>onClientChange());
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
