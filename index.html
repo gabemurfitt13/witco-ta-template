@@ -1432,6 +1432,9 @@ function addOrUpdateClient(existingId=null){
     goals: goals.length ? goals : DEFAULT_GOALS.slice()
   };
 
+  // Keep global template in sync with the latest edited tasks/goals.
+  saveTemplateDefaults(payload.tasks, payload.goals);
+
   if(existing){
     const idx=clients.findIndex(c=>c.id===existing.id);
     clients[idx]=payload;
