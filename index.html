@@ -1270,7 +1270,10 @@ function loadClientProfile(clientId) {
   if (typeof renderTasks === "function") renderTasks();
 }
   
-E.clientSelect.addEventListener("change", ()=>onClientChange());
+E.clientSelect.addEventListener("change", () => {
+  console.log("clientSelect changed to:", E.clientSelect.value);
+  onClientChange();
+});
 E.addTask.addEventListener("click", ()=>{ addTaskRow(E.tasksBody,{title:"",support:"",note:""}); autosave(); });
 E.addGoal.addEventListener("click", ()=>{ addGoalRow(E.goalsBody,{title:"",prompts:[{code:"",count:1}],note:""}); autosave(); });
 
