@@ -367,9 +367,8 @@ const COACH_BETA_MODE = true;
 const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
 
 const CLIENTS_KEY = "witco_clients_supabase_v2";
-const STORAGE_KEY_BASE = "witco_ta_supabase_v2";
-const TEMPLATE_KEY = "witco_ta_template_v1";
-const BUILD_KEY = "witco_ta_build_id";
+const STORAGE_KEY_BASE = `witco_ta_supabase_v2:${BUILD_ID}`;
+const TEMPLATE_KEY = `witco_ta_template_v1:${BUILD_ID}`;
 
 const DEFAULT_TASKS = ["Task 1", "Task 2", "Task 3"];
 const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
@@ -1028,17 +1027,6 @@ function saveTemplateDefaults(tasks, goals) {
   localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ tasks, goals }));
 }
 
-function ensureStorageForBuild() {
-  const lastBuild = localStorage.getItem(BUILD_KEY) || "";
-  if (lastBuild === BUILD_ID) return;
-
-  // Clear only template + drafts when build changes.
-  localStorage.removeItem(TEMPLATE_KEY);
-  Object.keys(localStorage).forEach(k => {
-    if (k.startsWith(STORAGE_KEY_BASE + ":")) localStorage.removeItem(k);
-  });
-  localStorage.setItem(BUILD_KEY, BUILD_ID);
-}
 
 function updateTemplateDefaultsFromForm() {
   const tasks = getTasks()
@@ -1805,8 +1793,6 @@ E.reviewKickBack.addEventListener("click", async ()=>{
 
 /* init */
 (function init(){
-  ensureStorageForBuild();
-
   if (COACH_BETA_MODE) {
     [E.saveNow, E.resumeDraft, E.exportJson, E.importJson, E.wipeAll].forEach(btn => {
       if (btn) btn.style.display = "none";
