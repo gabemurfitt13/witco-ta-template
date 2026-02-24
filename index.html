@@ -1337,6 +1337,28 @@ E.importJson.addEventListener("click", ()=>{
   try{ apply(JSON.parse(raw)); autosave(); setSaveState("Imported","good"); } catch { alert("Invalid JSON"); }
 });
 
+function splitNumberedOrLines(raw, labelWord){
+  const text = String(raw || "").replace(/\r/g, "").trim();
+  if (!text) return [];
+
+  // If the text contains "Goal 1" / "Task 1" style labels, split on them
+  const hasNumbered = new RegExp(`\\b${labelWord}\\s*\\d+\\b`, "i").test(text);
+
+  let parts;
+  if (hasNumbered) {
+    // Split when a line starts with "Goal <num>" or "Task <num>"
+    parts = ("\n" + text).split(new RegExp(`\\n(?=${labelWord}\\s*\\d+\\b\\s*[:\\)\\-\\. ]*)`, "i"));
+  } else {
+    // Normal: one per line
+    parts = text.split("\n");
+  }
+
+  return parts
+    .map(s => s.trim())
+    .map(s => s.replace(new RegExp(`^${labelWord}\\s*\\d+\\b\\s*[:\\)\\-\\. ]*`, "i"), "").trim())
+    .filter(Boolean);
+}
+  
 function addOrUpdateClient(existingId=null){
   const clients=getClients();
   const existing=existingId ? clients.find(c=>c.id===existingId) : null;
@@ -1353,10 +1375,10 @@ function addOrUpdateClient(existingId=null){
   const workLocation=prompt("Default Work Location (optional):", existing?.workLocation || "") || "";
 
   const tasksRaw=prompt("Tasks (one per line):", (existing?.tasks || DEFAULT_TASKS).join("\n")) || "";
-  const tasks=tasksRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+  const tasks = splitNumberedOrLines(tasksRaw, "Task");
 
   const goalsRaw=prompt("Goals (one per line):", (existing?.goals || DEFAULT_GOALS).join("\n")) || "";
-  const goals=goalsRaw.split("\n").map(s=>s.trim()).filter(Boolean);
+  const goals = splitNumberedOrLines(goalsRaw, "Goal");
 
   const payload={
     id: existing?.id || ("client_" + Math.random().toString(16).slice(2)),
