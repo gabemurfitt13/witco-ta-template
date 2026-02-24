@@ -1246,17 +1246,13 @@ const DEMO_CLIENTS = [
   }
 ];
 
-// 2) Wire up the demo button
-
-  // Rebuild dropdown and select the demo client
-    renderClientSelect("demo_1");
-
-    // Load the selected client into the form
-    onClientChange();
-
-    setSaveState("Demo clients loaded", "good");
-  });
-}  
+// 2) Wire up the demo button (E.demoBtn already exists in your E map)
+E.demoBtn.addEventListener("click", () => {
+  saveClients(DEMO_CLIENTS);
+  renderClientSelect("demo_1");
+  onClientChange();
+  setSaveState("Demo clients loaded", "good");
+});
 
 ["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
   el(id).addEventListener("input", autosave);
