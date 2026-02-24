@@ -1166,17 +1166,13 @@ function autosave() {
     const cid = currentClientId();
     if (!cid) return;
     localStorage.setItem(storageKeyFor(cid), JSON.stringify(snapshot()));
-    updateTemplateDefaultsFromForm();
     setSaveState("Saved", "good");
     setTimeout(() => setSaveState("Saved (idle)", ""), 800);
   }, 150);
 }
 
 function loadClientTemplate(client){
-  const template = getTemplateDefaults();
-  const templateTasks = template.tasks.length ? template.tasks : null;
-  const templateGoals = template.goals.length ? template.goals : null;
-
+ 
   E.planStartUS.value=isoToUS(client.planStartISO||"");
   E.planEndUS.value=isoToUS(client.planEndISO||"");
   E.workLocation.value=client.workLocation||"";
@@ -1184,8 +1180,8 @@ function loadClientTemplate(client){
   E.timeIn.value=""; E.timeOut.value=""; E.totalTime.value="";
   E.additionalNotes.value="";
 
-  const seedTasks = templateTasks || client.tasks || DEFAULT_TASKS;
-  const seedGoals = templateGoals || client.goals || DEFAULT_GOALS;
+ const seedTasks = (Array.isArray(client.tasks) && client.tasks.length) ? client.tasks : DEFAULT_TASKS;
+const seedGoals = (Array.isArray(client.goals) && client.goals.length) ? client.goals : DEFAULT_GOALS;
 
   setTasks(seedTasks.map(t=>({title:t,support:"",note:""})));
   setGoals(seedGoals.map(g=>({title:g,prompts:[{code:"",count:1}],note:""})));
@@ -1244,45 +1240,7 @@ function saveDraft(clientId, draft) {
 function clearDraft(clientId) {
   localStorage.removeItem(draftKey(clientId));
 }
-  function saveActiveClientProfile() {
-  if (!ACTIVE_CLIENT_ID) return;
-
-  // IMPORTANT: change these lines to match your real data
-  const profile = {
-    // these are your "follows the client" fields
-    clientName: (E.clientName?.value || "").trim(),
-    planStart: E.planStart?.value || "",
-    planEnd: E.planEnd?.value || "",
-    location: (E.location?.value || "").trim(),
-
-    // these MUST match wherever your goals/tasks live
-    goals: formState.goals || [],
-    tasks: formState.tasks || []
-  };
-
-  ALL_CLIENTS[ACTIVE_CLIENT_ID] = profile;
-  lsSaveAll(ALL_CLIENTS);
-}
-
-function loadClientProfile(clientId) {
-  const profile = ALL_CLIENTS[clientId];
-  if (!profile) return;
-
-  // load fields back into the form
-  if (E.clientName) E.clientName.value = profile.clientName || "";
-  if (E.planStart) E.planStart.value = profile.planStart || "";
-  if (E.planEnd) E.planEnd.value = profile.planEnd || "";
-  if (E.location) E.location.value = profile.location || "";
-
-  // load goals/tasks back into state
-  formState.goals = Array.isArray(profile.goals) ? profile.goals : [];
-  formState.tasks = Array.isArray(profile.tasks) ? profile.tasks : [];
-
-  // re-draw the UI (use whatever functions you actually have)
-  if (typeof renderGoals === "function") renderGoals();
-  if (typeof renderTasks === "function") renderTasks();
-}
-  
+   
 E.clientSelect.addEventListener("change", () => {
   console.log("clientSelect changed to:", E.clientSelect.value);
   onClientChange();
@@ -1304,17 +1262,8 @@ const DEMO_CLIENTS = [
 ];
 
 // 2) Wire up the demo button
-const demoBtn = document.getElementById("demoBtn");
-if (demoBtn) {
-  demoBtn.addEventListener("click", () => {
-    const clients = getClients();
 
-    // If you already have clients, don't overwrite them
-    if (!clients || clients.length === 0) {
-      saveClients(DEMO_CLIENTS);
-    }
-
-    // Rebuild dropdown and select the demo client
+  // Rebuild dropdown and select the demo client
     renderClientSelect("demo_1");
 
     // Load the selected client into the form
