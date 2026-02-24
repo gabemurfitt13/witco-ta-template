@@ -1190,30 +1190,11 @@ function onClientChange() {
   // 3) Create the first saved draft right away
   autosave();
 }
-  const LS_CLIENTS_KEY = "ta_clients_v1";
-
-function loadClients() {
-  try { return JSON.parse(localStorage.getItem(LS_CLIENTS_KEY) || "{}"); }
-  catch { return {}; }
-}
-function loadSavedClient(cid){
-  if(!cid) return;
-
-  const raw = localStorage.getItem(storageKeyFor(cid));
-  if(!raw) return;
-
-  try{
-    const snap = JSON.parse(raw);
-    restoreSnapshot(snap); // <-- see Step 4
-    setSaveState("Loaded","good");
-    setTimeout(()=>setSaveState("Loaded (idle)",""),800);
-  }catch(e){
-    console.warn("Failed to load saved client:", e);
-  }
-}
-function saveClients(clients) {
-  localStorage.setItem(LS_CLIENTS_KEY, JSON.stringify(clients));
-}
+  // NOTE: client storage helpers are defined earlier using `CLIENTS_KEY`.
+  // Avoid redefining `saveClients` / client keys later in the file which
+  // caused the dropdown to not reflect updates from the Add/Demo/Supabase
+  // buttons. The earlier `getClients` / `saveClients` that use
+  // `CLIENTS_KEY` should be used consistently.
 
 function draftKey(clientId) {
   return `ta_draft_${clientId}`;
