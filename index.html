@@ -1254,10 +1254,24 @@ E.demoBtn.addEventListener("click", () => {
   setSaveState("Demo clients loaded", "good");
 });
 
-["workLocation","entryDateUS","additionalNotes"].forEach(id=>{
+["workLocation","entryDateUS"].forEach(id=>{
   el(id).addEventListener("input", autosave);
   el(id).addEventListener("change", autosave);
 });
+
+// Auto-expand Additional Notes like the anecdotal fields
+(function initAdditionalNotesAutosize(){
+  const ta = E.additionalNotes; // same as el("additionalNotes")
+  if (!ta) return;
+
+  const resize = () => autosizeTA(ta);
+
+  ta.addEventListener("input", () => { resize(); autosave(); });
+  ta.addEventListener("change", () => { resize(); autosave(); });
+
+  // Expand on load (in case draft loads text)
+  setTimeout(resize, 0);
+})();
 
 E.clientPrinted.addEventListener("input", ()=>{ formState.sigs.client.printed=E.clientPrinted.value.trim(); autosave(); });
 E.coachPrinted.addEventListener("input",  ()=>{ formState.sigs.coach.printed=E.coachPrinted.value.trim(); autosave(); });
