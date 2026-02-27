@@ -955,8 +955,119 @@ function initSigPads() {
     )
   };
 }
-initSigPads();
+initSigPads();  
+// ===== Fullscreen signature modal =====
+const SigUI = {
+  overlay: el("sigOverlay"),
+  title: el("sigModalTitle"),
+  close: el("sigCloseBtn"),
+  bigCanvas: el("sigBigCanvas"),
+  bigClear: el("sigBigClearBtn"),
+  bigUse: el("sigBigUseBtn"),
+  bigDebug: el("sigBigDebug"),
+};
 
+let activeSigKind = null;    // "client" | "coach" | "spec"
+let bigPad = null;
+
+function showSigOverlay(show=true){
+  if (!SigUI.overlay) return;
+  SigUI.overlay.style.display = show ? "flex" : "none";
+}
+
+function openSigModal(kind){
+  activeSigKind = kind;
+
+  // Title
+  SigUI.title.textContent =
+    kind === "client" ? "Client Signature" :
+    kind === "coach"  ? "Coach Signature"  :
+    "Specialist Signature";
+
+  // Build a pad that writes into a temporary buffer first
+  let tempDataUrl = formState.sigs[kind].dataUrl || "";
+  let tempStrokes = formState.sigs[kind].strokes || 0;
+
+  // Create a fresh pad each open so it’s reliable
+  bigPad = createSigPad(
+    SigUI.bigCanvas,
+    ()=>tempDataUrl,
+    (d)=>tempDataUrl=d,
+    ()=>tempStrokes,
+    (n)=>tempStrokes=n,
+    SigUI.bigDebug
+  );
+
+  // Show overlay
+  showSigOverlay(true);
+
+  // If there’s an existing signature, it will redraw via createSigPad().
+  // Force a redraw after display so sizing is correct.
+  setTimeout(() => { bigPad?.redraw?.(); }, 0);
+
+  // Buttons
+  SigUI.bigClear.onclick = () => { bigPad.clear(); };
+
+  SigUI.bigUse.onclick = () => {
+    bigPad.commit();
+
+    // Must have strokes
+    if ((tempStrokes || 0) <= 0) {
+      alert("Signature is blank.");
+      return;
+    }
+
+    // Copy back into real state
+    formState.sigs[kind].dataUrl = tempDataUrl;
+    formState.sigs[kind].strokes = tempStrokes;
+
+    // Redraw the small in-form canvas
+    if (kind === "client") sigPads.client.redraw();
+    if (kind === "coach")  sigPads.coach.redraw();
+    if (kind === "spec")   sigPads.spec.redraw();
+
+    syncSigBadges();
+    autosave();
+    showSigOverlay(false);
+  };
+}
+  
+// ---- FULLSCREEN SIGNATURE TRIGGERS (Option A) ----
+E.clientCanvas.addEventListener("click", () => {
+  if (formState.lockState !== "unlocked") return;
+  openSigModal("client");
+});
+
+E.coachCanvas.addEventListener("click", () => {
+  if (formState.lockState !== "unlocked") return;
+  if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
+  openSigModal("coach");
+});
+
+E.specCanvas.addEventListener("click", () => {
+  const allowed =
+    !!formState.sigs.client.dataUrl &&
+    !!formState.sigs.coach.dataUrl &&
+    isSpecialist &&
+    appMode === "review";
+  if (!allowed) return;
+  openSigModal("spec");
+});
+// ---- END FULLSCREEN SIGNATURE TRIGGERS ----
+
+function closeSigModal(){
+  showSigOverlay(false);
+  activeSigKind = null;
+  bigPad = null;
+}
+
+SigUI.close.addEventListener("click", closeSigModal);
+
+// Also close if user taps the dark background (optional)
+SigUI.overlay.addEventListener("click", (e) => {
+  if (e.target === SigUI.overlay) closeSigModal();
+});
+  
 function nowStamp(){ return new Date().toLocaleString(); }
 
 function setEditingEnabled(enabled){
@@ -1482,8 +1593,12 @@ E.clientSign.addEventListener("click", ()=>{
   const v = validateRequiredForSigning();
   if (!v.ok) return;
 
-  sigPads.client.commit();
-  if((formState.sigs.client.strokes||0) <= 0) return alert("Client signature is blank.");
+  // If no signature yet, open the big modal instead of trying to commit the small canvas
+  if (!formState.sigs.client.dataUrl || (formState.sigs.client.strokes||0) <= 0) {
+    openSigModal("client");
+    return;
+  }
+
   if(!(E.clientPrinted.value||"").trim()) return alert("Client printed name is required.");
   finalizeClientSignature();
 });
@@ -1493,11 +1608,47 @@ E.coachSign.addEventListener("click", ()=>{
   if (!v.ok) return;
 
   if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
-  sigPads.coach.commit();
-  if((formState.sigs.coach.strokes||0) <= 0) return alert("Coach signature is blank.");
+
+  // If coach hasn't signed yet, open the big modal
+  if (!formState.sigs.coach.dataUrl || (formState.sigs.coach.strokes||0) <= 0) {
+    openSigModal("coach");
+    return;
+  }
+
   if(!(E.coachPrinted.value||"").trim()) return alert("Coach printed name is required.");
   finalizeCoachSignature();
 });
+
+  <!-- Signature Fullscreen Modal -->
+<div class="overlay" id="sigOverlay" style="z-index: 10000;">
+  <div class="modal" style="width: min(980px, 100%);">
+    <div class="btnbar" style="justify-content:space-between; align-items:center;">
+      <h3 id="sigModalTitle" style="margin:0;">Signature</h3>
+      <button class="secondary" id="sigCloseBtn" type="button">Close</button>
+    </div>
+
+    <p style="margin:0 0 10px; font-size:12px; color:#444;">
+      Tip: rotate the phone sideways for more space.
+    </p>
+
+    <canvas id="sigBigCanvas" style="
+      width: 100%;
+      height: 360px;
+      border: 2px dashed #cfd6ee;
+      border-radius: 12px;
+      touch-action:none;
+      display:block;
+      background: #fff;
+    "></canvas>
+
+    <div class="btnbar" style="margin-top:10px;">
+      <button class="secondary" id="sigBigClearBtn" type="button">Clear</button>
+      <button class="ok" id="sigBigUseBtn" type="button">Use Signature</button>
+    </div>
+
+    <div class="sigDebug" id="sigBigDebug" style="margin-top:8px;">strokes: 0 · data: 0</div>
+  </div>
+</div>
 
 /* Auth overlay */
 function showAuthOverlay(show=true){
