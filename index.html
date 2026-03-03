@@ -1592,20 +1592,28 @@ function finalizeClientSignature(){
   formState.sigs.client.signedAt = nowStamp();
   E.clientSignedAt.textContent = formState.sigs.client.signedAt;
 
-  formState.lockState = "locked";
-  updateLockUI();
+  // REMOVE LOCK FROM HERE
+  // formState.lockState = "locked";
+  // updateLockUI();
+
   syncSigBadges();
   autosave();
-  setSaveState("Client signed. Editing locked.","good");
+  setSaveState("Client signed.","good");
 }
 
 function finalizeCoachSignature(){
   formState.sigs.coach.printed = (E.coachPrinted.value||"").trim();
   formState.sigs.coach.signedAt = nowStamp();
   E.coachSignedAt.textContent = formState.sigs.coach.signedAt;
-  syncSigBadges(); autosave(); setSaveState("Coach signed.","good");
-}
 
+  // LOCK HERE INSTEAD
+  formState.lockState = "locked";
+  updateLockUI();
+
+  syncSigBadges();
+  autosave();
+  setSaveState("Coach signed. Editing locked.","good");
+}
 function finalizeSpecSignature(){
   formState.sigs.spec.printed = (E.specPrinted.value||"").trim();
   formState.sigs.spec.signedAt = nowStamp();
