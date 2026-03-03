@@ -391,7 +391,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_8e-o03OLnP1rAoDTGeL-0A_iQ3fTmpd";
  * - no drafts/export/import/wipe (nothing saved locally by this app)
  * - submit goes to Edge Function
  */
-const COACH_BETA_MODE = true;
+const COACH_BETA_MODE = false;
 
 // Specialist allowlist (lowercase)
 const SPECIALIST_EMAILS = ["gabemurfitt13@gmail.com"];
@@ -404,8 +404,6 @@ const DEFAULT_GOALS = ["Goal 1", "Goal 2"];
 const SUPPORT_LEVELS = ["", "I", "IR", "VI", "M", "P", "R"];
 
 const EDGE_URL = "https://xhonexdwarrltxsiuevk.functions.supabase.co/submit-ta";
-const BETA_CODE = "WITCO-BETA-2026";
-
 const el = (id) => document.getElementById(id);
 
 const E = {
@@ -1743,7 +1741,7 @@ E.authLogoutBtn.addEventListener("click", async ()=>{
   showAuthMsg("Signed out.", "warn");
 });
 
-/* Beta submit via Edge Function (no coach sign-in required) */
+/* Authenticated submit via Edge Function (coach must be signed in) */
 E.submitSupabase.addEventListener("click", async () => {
   try {
     const v = validateRequiredForSigning();
@@ -1751,6 +1749,23 @@ E.submitSupabase.addEventListener("click", async () => {
 
     if (!formState.sigs.client.dataUrl) return alert("Client must sign first.");
     if (!formState.sigs.coach.dataUrl) return alert("Coach must sign next.");
+    
+const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    if (sessErr) throw sessErr;
+
+    const accessToken = sessData?.session?.access_token;
+    if (!accessToken) return alert("Please sign in before submitting.");
+
+    const snap = snapshot();
+    const submittedBy = (E.coachPrinted.value || "").trim() || "Coach";
+
+    
+    // Require coach sign-in
+    const { data: sessData, error: sessErr } = await sb.auth.getSession();
+    if (sessErr) throw sessErr;
+
+    const accessToken = sessData?.session?.access_token;
+    if (!accessToken) return alert("Please sign in before submitting.");
 
     const snap = snapshot();
     const submittedBy = (E.coachPrinted.value || "").trim() || "Coach";
@@ -1774,16 +1789,18 @@ E.submitSupabase.addEventListener("click", async () => {
     }
 
     const res = await fetch(EDGE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        beta_code: BETA_CODE,
-        submitted_by: submittedBy,
-        signed_at: new Date().toISOString(),
-        payload: JSON.parse(JSON.stringify(snap)),
-        preview_data_url: previewDataUrl
-      })
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${accessToken}`
+  },
+  body: JSON.stringify({
+    submitted_by: submittedBy,
+    signed_at: new Date().toISOString(),
+    payload: JSON.parse(JSON.stringify(snap)),
+    preview_data_url: previewDataUrl
+  })
+});
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
