@@ -26,7 +26,10 @@ index 9402d05d4942aa5050907ca46d1eb72a9e3c8651..985e933bf7d80b4e085caeb7a5adcd42
 +   - `public.profiles.user_id = auth.users.id`
 +   - `role = 'specialist'`
 +
++testing deployment
 +### Frontend compatibility notes
+
+
 +The current frontend:
 +- pulls clients from `clients(id, display_name, plan_start, plan_end, work_location)`
 +- inserts/updates TA rows in `ta_records_v2`
